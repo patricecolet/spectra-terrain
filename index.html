@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Langmuir</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    html, body {
+      margin: 0; padding: 0; overflow: hidden; height: 100%;
+      background: #05070d;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    #backdrop {
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(180deg, rgba(5,7,13,0.55) 0%, rgba(5,7,13,0.25) 30%, rgba(5,7,13,0.55) 75%, rgba(5,7,13,0.92) 100%),
+        url('/album/cover.jpg');
+      background-size: cover;
+      background-position: center;
+    }
+    canvas {
+      position: relative; z-index: 1; display: block;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+    }
+    canvas.active { opacity: 1; }
+
+    #top-bar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 18px 12px 10px;
+      gap: 14px;
+      background: linear-gradient(180deg, rgba(5,7,13,0.75), rgba(5,7,13,0));
+      pointer-events: none;
+    }
+    #logo {
+      height: 46px;
+      opacity: 0.95;
+      filter: brightness(0) invert(1) drop-shadow(0 2px 10px rgba(0,0,0,0.8));
+      pointer-events: auto;
+      cursor: pointer;
+    }
+    #tracklist {
+      display: flex; flex-wrap: wrap; justify-content: center;
+      gap: 6px 4px;
+      max-width: 1000px;
+      pointer-events: auto;
+    }
+    .track-btn {
+      background: rgba(15, 20, 35, 0.55);
+      border: 1px solid rgba(207, 232, 255, 0.18);
+      border-radius: 5px;
+      padding: 6px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: flex-end;
+      transition: background 0.15s, border-color 0.15s, transform 0.15s;
+    }
+    .track-btn:hover {
+      background: rgba(35, 55, 90, 0.65);
+      border-color: rgba(207, 232, 255, 0.4);
+      transform: translateY(-1px);
+    }
+    .track-btn.active {
+      background: rgba(60, 130, 200, 0.35);
+      border-color: #7fc4ff;
+    }
+    .track-btn img.glyph {
+      width: auto;
+      display: block;
+      filter: brightness(0) invert(1);
+      opacity: 0.85;
+    }
+    .track-btn.active img.glyph { opacity: 1; }
+    .track-btn .glyph-row { display: flex; align-items: flex-end; gap: 1px; }
+
+    #center-stage {
+      position: fixed; inset: 0; z-index: 5;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 28px;
+      pointer-events: none;
+      transition: opacity 0.6s ease;
+    }
+    #center-stage.hidden { opacity: 0; pointer-events: none; }
+    #big-logo {
+      width: min(80vw, 640px);
+      filter: brightness(0) invert(1) drop-shadow(0 6px 30px rgba(0,0,0,0.8));
+    }
+    #now-playing {
+      position: fixed; left: 14px; bottom: 14px; z-index: 10;
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(5, 7, 13, 0.55);
+      padding: 8px 12px; border-radius: 8px;
+      opacity: 0; transform: translateY(6px);
+      transition: opacity 0.4s, transform 0.4s;
+    }
+    #now-playing.visible { opacity: 1; transform: translateY(0); }
+    #now-playing .glyph-row { display: flex; align-items: flex-end; gap: 1px; }
+    #now-playing .glyph-row img.glyph { width: auto; display: block; filter: brightness(0) invert(1); }
+    #view-toggle, #anim-toggle, #stop-btn {
+      background: #12203a; color: #cfe8ff; border: 1px solid #2a4166;
+      border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
+    }
+    #view-toggle:hover, #anim-toggle:hover, #stop-btn:hover { background: #1a2e52; }
+    #stop-btn { color: #ffb3b3; border-color: #4a2a2a; }
+    #stop-btn:hover { background: #3a1a1a; }
+
+    #tuning-toggle {
+      position: fixed; right: 14px; bottom: 14px; z-index: 11;
+      background: rgba(5, 7, 13, 0.6);
+      border: 1px solid rgba(207, 232, 255, 0.15);
+      border-radius: 8px;
+      width: 30px; height: 30px;
+      color: #cfe8ff; font-size: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #tuning-toggle:hover { background: rgba(35, 55, 90, 0.65); }
+    #tuning {
+      position: fixed; right: 14px; bottom: 52px; z-index: 10;
+      background: rgba(5, 7, 13, 0.6);
+      border: 1px solid rgba(207, 232, 255, 0.15);
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex; flex-direction: column; gap: 8px;
+      color: #cfe8ff; font-size: 11px;
+      min-width: 170px;
+      transition: opacity 0.2s, transform 0.2s;
+      transform-origin: bottom right;
+    }
+    #tuning.hidden {
+      opacity: 0; transform: scale(0.95);
+      pointer-events: none;
+    }
+    #tuning label {
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    #tuning label.check {
+      flex-direction: row; align-items: center; gap: 6px;
+      cursor: pointer; opacity: 0.85;
+    }
+    #tuning label.check input { margin: 0; accent-color: #7fc4ff; }
+    #tuning .sep {
+      border-top: 1px solid rgba(207, 232, 255, 0.15);
+      margin-top: 2px; padding-top: 6px;
+    }
+    #tuning .row { display: flex; justify-content: space-between; opacity: 0.8; }
+    #tuning input[type="range"] { width: 100%; }
+    .style-btn {
+      flex: 1;
+      background: #12203a; color: #cfe8ff; border: 1px solid #2a4166;
+      border-radius: 5px; padding: 5px 6px; font-size: 11px; cursor: pointer;
+    }
+    .style-btn:hover { background: #1a2e52; }
+    .style-btn.active { background: rgba(60, 130, 200, 0.45); border-color: #7fc4ff; }
+  </style>
+</head>
+<body>
+  <div id="backdrop"></div>
+
+  <div id="top-bar">
+    <img id="logo" src="/album/logo.png" alt="Langmuir" />
+    <div id="tracklist"></div>
+  </div>
+
+  <div id="center-stage">
+    <img id="big-logo" src="/album/logo.png" alt="Langmuir" />
+  </div>
+
+  <div id="now-playing">
+    <div class="glyph-row" id="now-playing-title"></div>
+    <button id="view-toggle">vue : vallée au milieu</button>
+    <button id="anim-toggle">masquer l'animation</button>
+    <button id="stop-btn">stop</button>
+  </div>
+
+  <button id="tuning-toggle" title="réglages">⚙</button>
+  <div id="tuning" class="hidden">
+    <label>
+      <span class="row"><span>largeur</span><span id="tuning-width-val"></span></span>
+      <input type="range" id="tuning-width" min="10" max="60" step="1" autocomplete="off" />
+    </label>
+    <label>
+      <span class="row"><span>hauteur</span><span id="tuning-amplitude-val"></span></span>
+      <input type="range" id="tuning-amplitude" min="0" max="20" step="0.5" autocomplete="off" />
+    </label>
+    <label>
+      <span class="row"><span>courbe (profondeur)</span><span id="tuning-curve-val"></span></span>
+      <input type="range" id="tuning-curve" min="-10" max="10" step="0.5" autocomplete="off" />
+    </label>
+    <div class="row" style="margin-top: 2px;">texture</div>
+    <div id="tuning-style-group" style="display: flex; gap: 4px;">
+      <button class="style-btn" data-style="0">lisse</button>
+      <button class="style-btn" data-style="1">dessiné</button>
+    </div>
+    <label class="check sep">
+      <input type="checkbox" id="tuning-auto" checked autocomplete="off" />
+      <span>réglages automatiques</span>
+    </label>
+    <label>
+      <span class="row"><span>vitesse</span><span id="tuning-auto-speed-val"></span></span>
+      <input type="range" id="tuning-auto-speed" min="0.1" max="3" step="0.1" value="0.1" autocomplete="off" />
+    </label>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
