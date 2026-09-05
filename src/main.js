@@ -50,10 +50,16 @@ let manualWidth = false;
 
 const game = new Game({ scene, terrain });
 const gameToggle = document.getElementById('game-toggle');
+const gameScoreEl = document.getElementById('game-score');
+const gameScoreVal = document.getElementById('game-score-val');
+game.onScore = (score) => {
+  gameScoreVal.textContent = score;
+};
 gameToggle.addEventListener('click', () => {
   const enabled = !game.enabled;
   game.setEnabled(enabled);
   gameToggle.classList.toggle('active', enabled);
+  gameScoreEl.classList.toggle('hidden', !enabled);
 });
 
 const analyser = new AudioAnalyser(terrain.bins);
@@ -176,7 +182,7 @@ analyser.onAdvance = () => {
 // automatique" is off, in which case a track plays once and stops here.
 analyser.onEnded = () => {
   if (tuningAutochain.checked) {
-    selectTrack(nextTrackOf(currentSlug).slug, { pushHash: true });
+    selectTrack(nextTrackOf(currentSlug).slug, { pushHash: true, chained: true });
   } else {
     resetToIdle({ clearHash: true });
   }
@@ -217,7 +223,12 @@ function startPending(event) {
 window.addEventListener('pointerdown', startPending);
 window.addEventListener('keydown', startPending);
 
-async function selectTrack(slug, { pushHash = false } = {}) {
+// `chained` is true only for the non-gapless chaining fallback (see
+// analyser.onEnded above): that path is still a continuation of the album,
+// so the terrain keeps scrolling instead of flashing back to flat. Every
+// other caller (clicking a track, a deep link, the initial page load) is a
+// deliberate fresh start, and resets it.
+async function selectTrack(slug, { pushHash = false, chained = false } = {}) {
   const track = trackBySlug(slug);
   if (!track) return;
 
@@ -232,6 +243,7 @@ async function selectTrack(slug, { pushHash = false } = {}) {
   }
 
   showTrack(track, { pushHash: false });
+  if (!chained) terrain.reset();
 
   try {
     await analyser.loadURL(track.file);

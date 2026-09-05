@@ -129,6 +129,16 @@
     }
     #game-toggle:hover { background: rgba(35, 55, 90, 0.65); }
     #game-toggle.active { background: rgba(60, 130, 200, 0.45); border-color: #7fc4ff; }
+    #game-score {
+      position: fixed; right: 90px; bottom: 14px; z-index: 11;
+      background: rgba(5, 7, 13, 0.6);
+      border: 1px solid rgba(207, 232, 255, 0.15);
+      border-radius: 8px;
+      padding: 0 12px; height: 30px;
+      color: #ffc94d; font-size: 13px; font-weight: 600;
+      display: flex; align-items: center;
+    }
+    #game-score.hidden { display: none; }
     #tuning {
       position: fixed; right: 14px; bottom: 52px; z-index: 10;
       background: rgba(5, 7, 13, 0.6);
@@ -233,6 +243,7 @@
 
   <button id="tuning-toggle" title="réglages (shift+clic)">⚙</button>
   <button id="game-toggle" title="jeu (flèches)">🎮</button>
+  <div id="game-score" class="hidden">score : <span id="game-score-val">0</span></div>
 
   <div id="password-overlay" class="hidden">
     <div id="password-box">

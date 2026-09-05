@@ -137,6 +137,19 @@ export class Terrain {
     return next === 1;
   }
 
+  // Clears the scrolling height buffer and restarts the scroll from its own
+  // beginning. Without this, a deliberately restarted track still shows the
+  // previous track's bumps sitting at the near edge (they take up to
+  // historyLength frames -- a few seconds -- to scroll out on their own),
+  // reading as if the new track were already midway through instead of
+  // starting fresh and filling in from the far edge like it should.
+  reset() {
+    this.dataArray.fill(0);
+    this.texture.needsUpdate = true;
+    this.frame = 0;
+    this.material.uniforms.uOffset.value = 0;
+  }
+
   // Bilinear sample of one channel (0 = R/left, 1 = G/right) of dataArray,
   // mirroring the texture's own filtering/wrapping (LinearFilter, U clamped,
   // V repeated) instead of doing this on the GPU: the game needs to query
