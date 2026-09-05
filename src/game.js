@@ -16,6 +16,7 @@ const GOAL_HOVER = 0.9; // resting height above the terrain surface it's riding
 const GOAL_BOB_AMPLITUDE = 0.25;
 const GOAL_BOB_SPEED = 2.2;
 const CAPTURE_RADIUS = BALL_RADIUS + GOAL_RADIUS + 0.3; // how close counts as "reached"
+const MAX_SUBSTEP = 0.08; // world units per collision sub-step, see update()
 
 // A ball that walks on the terrain's own live height field: arrow keys move
 // an aim point, the ball steers toward it every frame, climbing what it can
@@ -116,47 +117,61 @@ export class Game {
     if (!this.enabled) return;
     this._time += dt;
 
-    const dx = this.aim.x - this.position.x;
-    const dz = this.aim.z - this.position.z;
-    const dist = Math.hypot(dx, dz);
-    if (dist > 0.01) {
-      let dirX = dx / dist;
-      let dirZ = dz / dist;
-
-      const eps = 0.3;
-      const hR = this.terrain.sampleHeightAtWorld(this.position.x + eps, this.position.z);
-      const hL = this.terrain.sampleHeightAtWorld(this.position.x - eps, this.position.z);
-      const hF = this.terrain.sampleHeightAtWorld(this.position.x, this.position.z + eps);
-      const hB = this.terrain.sampleHeightAtWorld(this.position.x, this.position.z - eps);
-      const dHdx = (hR - hL) / (2 * eps);
-      const dHdz = (hF - hB) / (2 * eps);
-      const gradLen = Math.hypot(dHdx, dHdz);
-
-      if (gradLen > 1e-4) {
-        const gx = dHdx / gradLen;
-        const gz = dHdz / gradLen;
-        const along = dirX * gx + dirZ * gz; // signed slope faced if moving straight toward the aim point
-        const climb = along * gradLen;
-        if (climb > MAX_CLIMB_SLOPE) {
-          const allowedAlong = MAX_CLIMB_SLOPE / gradLen;
-          const tanX = dirX - along * gx;
-          const tanZ = dirZ - along * gz;
-          const steerX = tanX + allowedAlong * gx;
-          const steerZ = tanZ + allowedAlong * gz;
-          const len = Math.hypot(steerX, steerZ) || 1;
-          dirX = steerX / len;
-          dirZ = steerZ / len;
-        }
-      }
-
-      const step = Math.min(dist, BALL_SPEED * dt);
-      this.position.x += dirX * step;
-      this.position.z += dirZ * step;
-
+    const totalDist = Math.hypot(this.aim.x - this.position.x, this.aim.z - this.position.z);
+    if (totalDist > 0.01) {
       const halfWidth = this.terrain.width / 2 - MARGIN;
       const halfDepth = this.terrain.depth / 2 - MARGIN;
-      this.position.x = Math.min(halfWidth, Math.max(-halfWidth, this.position.x));
-      this.position.z = Math.min(halfDepth, Math.max(-halfDepth, this.position.z));
+      // Half a bin's width: the gradient sample needs to be at least this
+      // fine to notice a spike that's only one bin wide, instead of
+      // straddling it and reading the (unobstructed) ground on either side.
+      const eps = Math.max(0.02, (this.terrain.width / this.terrain.bins) * 0.5);
+
+      // Sub-stepped movement: at BALL_SPEED and a slow frame, one frame's
+      // worth of travel can be wider than a single spike, so committing to a
+      // direction once and moving the full distance can jump clean over/
+      // through it. Re-checking the slope every MAX_SUBSTEP means the ball
+      // can never cross more than a fraction of a bin without "seeing" it.
+      let remaining = Math.min(totalDist, BALL_SPEED * dt);
+      while (remaining > 1e-4) {
+        const dx = this.aim.x - this.position.x;
+        const dz = this.aim.z - this.position.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < 1e-4) break;
+        let dirX = dx / dist;
+        let dirZ = dz / dist;
+
+        const hR = this.terrain.sampleHeightAtWorld(this.position.x + eps, this.position.z);
+        const hL = this.terrain.sampleHeightAtWorld(this.position.x - eps, this.position.z);
+        const hF = this.terrain.sampleHeightAtWorld(this.position.x, this.position.z + eps);
+        const hB = this.terrain.sampleHeightAtWorld(this.position.x, this.position.z - eps);
+        const dHdx = (hR - hL) / (2 * eps);
+        const dHdz = (hF - hB) / (2 * eps);
+        const gradLen = Math.hypot(dHdx, dHdz);
+
+        if (gradLen > 1e-4) {
+          const gx = dHdx / gradLen;
+          const gz = dHdz / gradLen;
+          const along = dirX * gx + dirZ * gz; // signed slope faced if moving straight toward the aim point
+          const climb = along * gradLen;
+          if (climb > MAX_CLIMB_SLOPE) {
+            const allowedAlong = MAX_CLIMB_SLOPE / gradLen;
+            const tanX = dirX - along * gx;
+            const tanZ = dirZ - along * gz;
+            const steerX = tanX + allowedAlong * gx;
+            const steerZ = tanZ + allowedAlong * gz;
+            const len = Math.hypot(steerX, steerZ) || 1;
+            dirX = steerX / len;
+            dirZ = steerZ / len;
+          }
+        }
+
+        const step = Math.min(remaining, MAX_SUBSTEP, dist);
+        this.position.x += dirX * step;
+        this.position.z += dirZ * step;
+        this.position.x = Math.min(halfWidth, Math.max(-halfWidth, this.position.x));
+        this.position.z = Math.min(halfDepth, Math.max(-halfDepth, this.position.z));
+        remaining -= step;
+      }
     }
 
     const height = this.terrain.sampleHeightAtWorld(this.position.x, this.position.z);
