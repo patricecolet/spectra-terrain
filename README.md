@@ -23,16 +23,18 @@ morceau ouvert par lien direct est préchargé en silence — la page reste sur 
 pochette, seul le bouton du morceau s'allume — et démarre au premier clic ou à
 la première touche, sans rien demander.
 
-L'album s'enchaîne tout seul : à la fin d'un morceau le suivant démarre, et
-après le dernier on repart au premier. Seul « stop » revient à la pochette.
-L'enchaînement est sans blanc — le morceau suivant est téléchargé, décodé et
-**programmé sur l'horloge audio** vingt secondes avant la fin du précédent,
-pour démarrer à l'échantillon près où celui-ci s'arrête, au lieu d'être
-chargé une fois le silence déjà installé.
+Par défaut un morceau se joue une fois puis s'arrête, retour à la pochette.
+Le panneau ⚙ propose deux réglages de contenu : « enchaînement automatique »
+(le suivant démarre sans blanc — programmé sur l'horloge audio vingt secondes
+avant la fin du précédent — et on reboucle après le dernier) et « morceaux
+affichés » (une case par piste ; seules "If" et "Orange pressee" sont cochées
+par défaut, les autres restent dans l'album mais hors de la rangée du haut
+tant qu'on ne les coche pas).
 
-Le panneau ⚙ propose aussi des **réglages automatiques** : largeur, hauteur et
-courbe dérivent chacune vers des valeurs tirées au hasard, à leur propre
-rythme, avec un curseur de vitesse commun. La page s'ouvre là-dessus, vitesse
+Le panneau propose aussi des **réglages automatiques** : largeur, hauteur,
+courbe, brouillard et vibration dérivent chacun vers des valeurs tirées au
+hasard, à leur propre rythme, avec un curseur de vitesse commun. La page
+s'ouvre là-dessus, vitesse
 au minimum et texture « dessiné ».
 
 ## Structure

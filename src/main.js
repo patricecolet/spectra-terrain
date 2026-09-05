@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { AudioAnalyser } from './audio.js';
 import { Terrain } from './terrain.js';
-import { tracks, trackBySlug, renderGlyphTitle } from './album.js';
+import { tracks, trackBySlug, renderGlyphTitle, DEFAULT_VISIBLE_SLUGS } from './album.js';
 
 const scene = new THREE.Scene();
 
@@ -68,8 +68,19 @@ function updateCanvasVisibility() {
   renderer.domElement.classList.toggle('active', hasStartedPlayback && animVisible);
 }
 
+// Which tracks show in the top row and get chained into -- toggled from the
+// "morceaux affichés" checkboxes in the tuning panel. All tracks still exist
+// (trackBySlug/deep links keep working regardless), this only controls what
+// gets built into the tracklist row and what nextTrackOf() cycles through.
+let visibleSlugs = new Set(DEFAULT_VISIBLE_SLUGS);
+
+function visibleTracks() {
+  return tracks.filter((t) => visibleSlugs.has(t.slug));
+}
+
 function buildTracklist() {
-  tracks.forEach((track) => {
+  tracklistEl.innerHTML = '';
+  visibleTracks().forEach((track) => {
     const btn = document.createElement('button');
     btn.className = 'track-btn';
     btn.dataset.slug = track.slug;
@@ -108,11 +119,14 @@ function stopPlayback() {
   resetToIdle({ clearHash: true });
 }
 
-// The album plays through on its own and wraps around to the first track,
-// so the page can be left running; only "stop" ever returns it to idle.
+const tuningAutochain = document.getElementById('tuning-autochain');
+
+// Only among the currently visible tracks (see visibleSlugs above) -- wraps
+// to itself if just one is shown.
 function nextTrackOf(slug) {
-  const index = tracks.findIndex((t) => t.slug === slug);
-  return tracks[(index + 1) % tracks.length];
+  const list = visibleTracks();
+  const index = list.findIndex((t) => t.slug === slug);
+  return list[(index + 1) % list.length];
 }
 
 // How many seconds before the end of a track its successor gets decoded and
@@ -131,7 +145,9 @@ function queueFollowing(slug) {
 // would never get queued and the gap would come back. Chrome exempts
 // audible tabs from timer freezing, so a plain interval keeps running.
 setInterval(() => {
-  if (currentSlug && analyser.remaining < QUEUE_AHEAD) queueFollowing(currentSlug);
+  if (tuningAutochain.checked && currentSlug && analyser.remaining < QUEUE_AHEAD) {
+    queueFollowing(currentSlug);
+  }
 }, 1000);
 
 // The queued track has already taken over the sound, sample-accurately;
@@ -140,10 +156,15 @@ analyser.onAdvance = () => {
   showTrack(nextTrackOf(currentSlug), { pushHash: true });
 };
 
-// Safety net: reached only when nothing was queued in time (a failed fetch,
-// or a track shorter than QUEUE_AHEAD). Audible gap, but the album goes on.
+// Reached when nothing was queued in time (chaining just turned on, a failed
+// fetch, or a track shorter than QUEUE_AHEAD) -- or simply when "enchaînement
+// automatique" is off, in which case a track plays once and stops here.
 analyser.onEnded = () => {
-  selectTrack(nextTrackOf(currentSlug).slug, { pushHash: true });
+  if (tuningAutochain.checked) {
+    selectTrack(nextTrackOf(currentSlug).slug, { pushHash: true });
+  } else {
+    resetToIdle({ clearHash: true });
+  }
 };
 
 // A page opened on #slug has seen no user gesture, so the audio context
@@ -511,6 +532,34 @@ window.addEventListener('hashchange', () => {
   if (slug && slug !== currentSlug) {
     selectTrack(slug);
   }
+});
+
+// One checkbox per track in the tuning panel, independent of the tracklist
+// row itself: toggling one adds/removes that slug from visibleSlugs and
+// rebuilds the row. Always keeps at least one track visible -- an empty row
+// would leave nextTrackOf() with nothing to cycle through.
+const tuningTracksGroup = document.getElementById('tuning-tracks-group');
+tracks.forEach((track) => {
+  const label = document.createElement('label');
+  label.className = 'check';
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.autocomplete = 'off';
+  checkbox.checked = visibleSlugs.has(track.slug);
+  checkbox.addEventListener('change', () => {
+    if (!checkbox.checked && visibleSlugs.size <= 1 && visibleSlugs.has(track.slug)) {
+      checkbox.checked = true; // refuse to hide the last visible track
+      return;
+    }
+    if (checkbox.checked) visibleSlugs.add(track.slug);
+    else visibleSlugs.delete(track.slug);
+    buildTracklist();
+  });
+  const span = document.createElement('span');
+  span.textContent = track.title;
+  label.appendChild(checkbox);
+  label.appendChild(span);
+  tuningTracksGroup.appendChild(label);
 });
 
 buildTracklist();
