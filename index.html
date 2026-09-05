@@ -142,12 +142,25 @@
       cursor: pointer; opacity: 0.85;
     }
     #tuning label.check input { margin: 0; accent-color: #7fc4ff; }
-    #tuning .sep {
-      border-top: 1px solid rgba(207, 232, 255, 0.15);
-      margin-top: 2px; padding-top: 6px;
-    }
     #tuning .row { display: flex; justify-content: space-between; opacity: 0.8; }
     #tuning input[type="range"] { width: 100%; }
+    #tuning details {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    #tuning details + details {
+      border-top: 1px solid rgba(207, 232, 255, 0.15);
+      padding-top: 8px;
+    }
+    #tuning summary {
+      cursor: pointer; user-select: none;
+      display: flex; justify-content: space-between; align-items: center;
+      font-weight: 600; opacity: 0.9;
+    }
+    #tuning summary::-webkit-details-marker { display: none; }
+    #tuning summary::after {
+      content: '▾'; font-size: 9px; opacity: 0.6; transition: transform 0.15s;
+    }
+    #tuning details:not([open]) summary::after { transform: rotate(-90deg); }
     .style-btn {
       flex: 1;
       background: #12203a; color: #cfe8ff; border: 1px solid #2a4166;
@@ -178,73 +191,90 @@
 
   <button id="tuning-toggle" title="réglages">⚙</button>
   <div id="tuning" class="hidden">
-    <label>
-      <span class="row"><span>largeur</span><span id="tuning-width-val"></span></span>
-      <input type="range" id="tuning-width" min="10" max="60" step="1" autocomplete="off" />
-    </label>
-    <label>
-      <span class="row"><span>hauteur</span><span id="tuning-amplitude-val"></span></span>
-      <input type="range" id="tuning-amplitude" min="0" max="20" step="0.5" autocomplete="off" />
-    </label>
-    <label>
-      <span class="row"><span>courbe (profondeur)</span><span id="tuning-curve-val"></span></span>
-      <input type="range" id="tuning-curve" min="-10" max="10" step="0.5" autocomplete="off" />
-    </label>
-    <label>
-      <span class="row"><span>coloration (vert ↔ bleu)</span><span id="tuning-hue-val"></span></span>
-      <input type="range" id="tuning-hue" min="-1" max="1" step="0.05" autocomplete="off" />
-    </label>
-    <label class="check">
-      <input type="checkbox" id="tuning-hue-link" checked autocomplete="off" />
-      <span>reliée à la courbe</span>
-    </label>
-    <label>
-      <span class="row"><span>saturation (n&b ↔ vif)</span><span id="tuning-saturation-val"></span></span>
-      <input type="range" id="tuning-saturation" min="-1" max="1" step="0.05" autocomplete="off" />
-    </label>
-    <label class="check">
-      <input type="checkbox" id="tuning-saturation-link" checked autocomplete="off" />
-      <span>reliée à la largeur</span>
-    </label>
-    <label>
-      <span class="row"><span>brillance (glow ↔ chromé)</span><span id="tuning-brilliance-val"></span></span>
-      <input type="range" id="tuning-brilliance" min="-1" max="1" step="0.05" autocomplete="off" />
-    </label>
-    <label class="check">
-      <input type="checkbox" id="tuning-brilliance-link" checked autocomplete="off" />
-      <span>reliée à la hauteur</span>
-    </label>
-    <label class="check">
-      <input type="checkbox" id="tuning-backdrop-link" checked autocomplete="off" />
-      <span>coloration/saturation/brillance aussi sur le fond</span>
-    </label>
-    <label>
-      <span class="row"><span>brouillard (transparent ↔ dense)</span><span id="tuning-fog-val"></span></span>
-      <input type="range" id="tuning-fog" min="-1" max="1" step="0.05" autocomplete="off" />
-    </label>
-    <label>
-      <span class="row"><span>vibration (mou ↔ dur)</span><span id="tuning-vibration-val"></span></span>
-      <input type="range" id="tuning-vibration" min="-1" max="1" step="0.05" autocomplete="off" />
-    </label>
-    <div class="row" style="margin-top: 2px;">texture</div>
-    <div id="tuning-style-group" style="display: flex; gap: 4px;">
-      <button class="style-btn" data-style="0">lisse</button>
-      <button class="style-btn" data-style="1">dessiné</button>
-    </div>
-    <label class="check sep">
-      <input type="checkbox" id="tuning-auto" checked autocomplete="off" />
-      <span>réglages automatiques</span>
-    </label>
-    <label>
-      <span class="row"><span>vitesse</span><span id="tuning-auto-speed-val"></span></span>
-      <input type="range" id="tuning-auto-speed" min="0.1" max="3" step="0.1" value="0.1" autocomplete="off" />
-    </label>
-    <label class="check sep">
-      <input type="checkbox" id="tuning-autochain" autocomplete="off" />
-      <span>enchaînement automatique</span>
-    </label>
-    <div class="row" style="margin-top: 2px;">morceaux affichés</div>
-    <div id="tuning-tracks-group"></div>
+    <details>
+      <summary>terrain</summary>
+      <label>
+        <span class="row"><span>largeur</span><span id="tuning-width-val"></span></span>
+        <input type="range" id="tuning-width" min="10" max="60" step="1" autocomplete="off" />
+      </label>
+      <label>
+        <span class="row"><span>hauteur</span><span id="tuning-amplitude-val"></span></span>
+        <input type="range" id="tuning-amplitude" min="0" max="20" step="0.5" autocomplete="off" />
+      </label>
+      <label>
+        <span class="row"><span>courbe (profondeur)</span><span id="tuning-curve-val"></span></span>
+        <input type="range" id="tuning-curve" min="-10" max="10" step="0.5" autocomplete="off" />
+      </label>
+    </details>
+    <details>
+      <summary>couleur</summary>
+      <label>
+        <span class="row"><span>coloration (vert ↔ bleu)</span><span id="tuning-hue-val"></span></span>
+        <input type="range" id="tuning-hue" min="-1" max="1" step="0.05" autocomplete="off" />
+      </label>
+      <label class="check">
+        <input type="checkbox" id="tuning-hue-link" checked autocomplete="off" />
+        <span>reliée à la courbe</span>
+      </label>
+      <label>
+        <span class="row"><span>saturation (n&b ↔ vif)</span><span id="tuning-saturation-val"></span></span>
+        <input type="range" id="tuning-saturation" min="-1" max="1" step="0.05" autocomplete="off" />
+      </label>
+      <label class="check">
+        <input type="checkbox" id="tuning-saturation-link" checked autocomplete="off" />
+        <span>reliée à la largeur</span>
+      </label>
+      <label>
+        <span class="row"><span>brillance (glow ↔ chromé)</span><span id="tuning-brilliance-val"></span></span>
+        <input type="range" id="tuning-brilliance" min="-1" max="1" step="0.05" autocomplete="off" />
+      </label>
+      <label class="check">
+        <input type="checkbox" id="tuning-brilliance-link" checked autocomplete="off" />
+        <span>reliée à la hauteur</span>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="tuning-backdrop-link" checked autocomplete="off" />
+        <span>coloration/saturation/brillance aussi sur le fond</span>
+      </label>
+    </details>
+    <details>
+      <summary>ambiance</summary>
+      <label>
+        <span class="row"><span>brouillard (transparent ↔ dense)</span><span id="tuning-fog-val"></span></span>
+        <input type="range" id="tuning-fog" min="-1" max="1" step="0.05" autocomplete="off" />
+      </label>
+      <label>
+        <span class="row"><span>vibration (mou ↔ dur)</span><span id="tuning-vibration-val"></span></span>
+        <input type="range" id="tuning-vibration" min="-1" max="1" step="0.05" autocomplete="off" />
+      </label>
+    </details>
+    <details>
+      <summary>texture</summary>
+      <div id="tuning-style-group" style="display: flex; gap: 4px;">
+        <button class="style-btn" data-style="0">lisse</button>
+        <button class="style-btn" data-style="1">dessiné</button>
+      </div>
+    </details>
+    <details>
+      <summary>automatique</summary>
+      <label class="check">
+        <input type="checkbox" id="tuning-auto" checked autocomplete="off" />
+        <span>réglages automatiques</span>
+      </label>
+      <label>
+        <span class="row"><span>vitesse</span><span id="tuning-auto-speed-val"></span></span>
+        <input type="range" id="tuning-auto-speed" min="0.1" max="3" step="0.1" value="0.1" autocomplete="off" />
+      </label>
+    </details>
+    <details>
+      <summary>lecture</summary>
+      <label class="check">
+        <input type="checkbox" id="tuning-autochain" autocomplete="off" />
+        <span>enchaînement automatique</span>
+      </label>
+      <div class="row" style="margin-top: 2px;">morceaux affichés</div>
+      <div id="tuning-tracks-group"></div>
+    </details>
   </div>
 
   <script type="module" src="/src/main.js"></script>
