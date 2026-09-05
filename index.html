@@ -190,6 +190,42 @@
       <span class="row"><span>courbe (profondeur)</span><span id="tuning-curve-val"></span></span>
       <input type="range" id="tuning-curve" min="-10" max="10" step="0.5" autocomplete="off" />
     </label>
+    <label>
+      <span class="row"><span>coloration (vert ↔ bleu)</span><span id="tuning-hue-val"></span></span>
+      <input type="range" id="tuning-hue" min="-1" max="1" step="0.05" autocomplete="off" />
+    </label>
+    <label class="check">
+      <input type="checkbox" id="tuning-hue-link" checked autocomplete="off" />
+      <span>reliée à la courbe</span>
+    </label>
+    <label>
+      <span class="row"><span>saturation (n&b ↔ vif)</span><span id="tuning-saturation-val"></span></span>
+      <input type="range" id="tuning-saturation" min="-1" max="1" step="0.05" autocomplete="off" />
+    </label>
+    <label class="check">
+      <input type="checkbox" id="tuning-saturation-link" checked autocomplete="off" />
+      <span>reliée à la largeur</span>
+    </label>
+    <label>
+      <span class="row"><span>brillance (glow ↔ chromé)</span><span id="tuning-brilliance-val"></span></span>
+      <input type="range" id="tuning-brilliance" min="-1" max="1" step="0.05" autocomplete="off" />
+    </label>
+    <label class="check">
+      <input type="checkbox" id="tuning-brilliance-link" checked autocomplete="off" />
+      <span>reliée à la hauteur</span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="tuning-backdrop-link" checked autocomplete="off" />
+      <span>coloration/saturation/brillance aussi sur le fond</span>
+    </label>
+    <label>
+      <span class="row"><span>brouillard (transparent ↔ dense)</span><span id="tuning-fog-val"></span></span>
+      <input type="range" id="tuning-fog" min="-1" max="1" step="0.05" autocomplete="off" />
+    </label>
+    <label>
+      <span class="row"><span>vibration (mou ↔ dur)</span><span id="tuning-vibration-val"></span></span>
+      <input type="range" id="tuning-vibration" min="-1" max="1" step="0.05" autocomplete="off" />
+    </label>
     <div class="row" style="margin-top: 2px;">texture</div>
     <div id="tuning-style-group" style="display: flex; gap: 4px;">
       <button class="style-btn" data-style="0">lisse</button>

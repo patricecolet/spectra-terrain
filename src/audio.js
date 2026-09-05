@@ -242,4 +242,14 @@ export class AudioAnalyser {
     }
     return { left: this.freqDataL, right: this.freqDataR };
   }
+
+  // How many of the low-end bands (out of `bins`) fall below freqHz -- the
+  // exact count for a given cutoff depends on the real sample rate, not a
+  // guessed constant, since the bands are log-spaced from MIN_FREQ to
+  // Nyquist (see _buildBandRanges). Only meaningful once the graph exists
+  // (i.e. during playback, which is the only time callers need this).
+  binsUpTo(freqHz) {
+    const nyquist = this.context.sampleRate / 2;
+    return Math.round(this.bins * Math.log(freqHz / MIN_FREQ) / Math.log(nyquist / MIN_FREQ));
+  }
 }

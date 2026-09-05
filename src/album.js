@@ -4,14 +4,7 @@ import glyphSizes from './glyph-sizes.json';
 // band's hand-drawn dotted alphabet sheet (b3typo.jpg) — no accents in that
 // sheet, so titles are stored here without diacritics.
 export const tracks = [
-  { slug: 'alpha', title: 'Alpha', file: '/album/tracks/01-alpha.mp3' },
   { slug: 'if', title: 'If', file: '/album/tracks/02-if.mp3' },
-  { slug: 'jingle-cage', title: 'Jingle cage', file: '/album/tracks/03-jingle-cage.mp3' },
-  { slug: 'selamane', title: 'Selamane', file: '/album/tracks/04-selamane.mp3' },
-  { slug: 'jingle-cage-2', title: 'Jingle cage 2', file: '/album/tracks/05-jingle-cage-2.mp3' },
-  { slug: 'tete', title: 'Tete', file: '/album/tracks/06-tete.mp3' },
-  { slug: 'jingle-cage-3-vs-dom', title: 'Jingle cage 3 vs dom', file: '/album/tracks/07-jingle-cage-3-vs-dom.mp3' },
-  { slug: 'cage', title: 'Cage', file: '/album/tracks/08-cage.mp3' },
   { slug: 'orange-pressee', title: 'Orange pressee', file: '/album/tracks/09-orange-pressee.mp3' },
 ];
 

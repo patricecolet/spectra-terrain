@@ -18,6 +18,8 @@ export class Terrain {
     historyLength = 256,
     amplitude = 5,
     bassCenter = false,
+    fogColor = 0x05070d,
+    fog = 0,
   } = {}) {
     this.bins = bins;
     this.historyLength = historyLength;
@@ -45,6 +47,16 @@ export class Terrain {
         uCurve: { value: 0 },
         uHalfDepth: { value: this.depth / 2 },
         uStyle: { value: 0 }, // 0 = smooth shading, 1 = drawn/toon banding
+        uHueShift: { value: 0 }, // -1 green .. 0 neutral .. 1 blue
+        uSaturation: { value: 0 }, // -1 black & white .. 0 neutral (measured palette) .. 1 hyper-saturated
+        uBrilliance: { value: 0 }, // -1 glow .. 0 neutral .. 1 chrome
+        uFogColor: { value: new THREE.Color(fogColor) },
+        uFogAmount: { value: fog }, // -1 see-through .. 0 neutral .. 1 dense fog
+        uVibration: { value: 0 }, // -1 soft/slow ripple .. 0 neutral (still) .. 1 hard/fast jitter
+        uVibrationLevel: { value: 0 }, // 0..1 broadband loudness -- drives the "mou" wave
+        uVibrationBass: { value: 0 }, // 0..1 bass-only envelope -- drives the "dur" jitter
+        uVibrationSpatial: { value: 1 }, // <1 widens the ripple (bass-heavy), >1 tightens it (treble-heavy)
+        uVibrationTime: { value: 0 },
       },
       vertexShader,
       fragmentShader,
@@ -83,6 +95,36 @@ export class Terrain {
 
   setStyle(style) {
     this.material.uniforms.uStyle.value = style;
+  }
+
+  setHueShift(hueShift) {
+    this.material.uniforms.uHueShift.value = hueShift;
+  }
+
+  setSaturation(saturation) {
+    this.material.uniforms.uSaturation.value = saturation;
+  }
+
+  setBrilliance(brilliance) {
+    this.material.uniforms.uBrilliance.value = brilliance;
+  }
+
+  setFog(amount) {
+    this.material.uniforms.uFogAmount.value = amount;
+  }
+
+  setVibration(amount) {
+    this.material.uniforms.uVibration.value = amount;
+  }
+
+  // Called every frame regardless of playback state, so the ripple settles
+  // back to still (levels -> 0) on their own in silence even with the slider
+  // left dialled in, instead of needing to be switched off by hand.
+  updateVibration(dt, level, bass, spatial) {
+    this.material.uniforms.uVibrationTime.value += dt;
+    this.material.uniforms.uVibrationLevel.value = level;
+    this.material.uniforms.uVibrationBass.value = bass;
+    this.material.uniforms.uVibrationSpatial.value = spatial;
   }
 
   setBassCenter(enabled) {

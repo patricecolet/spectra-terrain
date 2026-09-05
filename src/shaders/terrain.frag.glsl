@@ -5,6 +5,21 @@ varying float vHeight;
 varying vec3 vNormal;
 
 uniform float uStyle; // 0 = smooth shading, 1 = drawn/toon banding with ink lines
+uniform float uHueShift;   // -1 (green) .. 0 (neutral, the measured palette) .. 1 (blue)
+uniform float uSaturation; // 0 (black & white) .. 1 (full colour, the measured palette)
+uniform float uBrilliance; // -1 (soft glow) .. 0 (neutral) .. 1 (chrome/specular)
+
+// Fog is applied by hand (mix toward uFogColor by camera distance) rather
+// than through three.js's built-in material.fog wiring: that path calls
+// WebGLRenderer's refreshFogUniforms() against whatever uniform slots the
+// compiled program actually kept, and on this fully custom ShaderMaterial it
+// threw (uniforms.fogColor undefined) every frame, killing the render loop.
+// Signed like the three params above: -1 (see-through/ghost) .. 0 (neutral,
+// no fog) .. 1 (dense fog, capped at the density this app used to carry as
+// its one fixed "medium" look before it became a live control).
+uniform vec3 uFogColor;
+uniform float uFogAmount;
+varying float vFogDepth;
 
 void main() {
   // Palette measured directly from the album artwork (a star, drawn in
@@ -66,6 +81,47 @@ void main() {
 
   color *= mix(shadeSmooth, shadeToon, uStyle);
 
+  // Coloration: swing the palette toward green or blue while keeping each
+  // pixel's own luminance, so a full swing still reads as the same shape in
+  // a different family of hues rather than a flat colour wash. uHueShift is
+  // signed and 0 at the measured palette, matching uCurve's own "0 = as
+  // authored" convention so the two can share a slider mapping when linked.
+  float baseLuma = dot(color, vec3(0.299, 0.587, 0.114));
+  vec3 greenTint = vec3(0.15, 0.85, 0.35) * baseLuma;
+  vec3 blueTint = vec3(0.15, 0.45, 0.95) * baseLuma;
+  color = mix(color, greenTint, max(-uHueShift, 0.0));
+  color = mix(color, blueTint, max(uHueShift, 0.0));
+
+  // Saturation: signed and 0 at the measured palette (already "fully
+  // coloured" -- there was never a plain/neutral reading further up, so that
+  // measured colour has to be the middle, not one end). Negative fades to
+  // that pixel's own grey; positive pushes each channel further from it than
+  // the source art ever was, for a hot/vivid pop instead of just "more of
+  // the same".
+  float satLuma = dot(color, vec3(0.299, 0.587, 0.114));
+  color = mix(color, vec3(satLuma), max(-uSaturation, 0.0));
+  color = mix(color, satLuma + (color - satLuma) * 1.6, max(uSaturation, 0.0));
+
+  // Brilliance: a single-pass stand-in for two opposite finishes. Glow
+  // (uBrilliance < 0) is a soft, even haze lifted uniformly across the whole
+  // surface -- not gated by lambert, so it reads as the surface itself
+  // radiating light rather than just its already-lit facets getting
+  // brighter (which looks like glare, not a glow). Capped well short of
+  // uBrilliance's own -1..0 range: pushed any further it wipes out the
+  // palette into a flat pale wash, reading as a lighting glitch rather than
+  // a glow. Chrome (uBrilliance > 0) adds a sharp specular glint off a fixed
+  // approximate view direction (vNormal is already in view space, and the
+  // camera looks down -Z there, so +Z stands in for "toward the eye").
+  // Neutral (0) leaves colour untouched either way, so this only ever pulls
+  // away from it.
+  vec3 viewDirApprox = vec3(0.0, 0.0, 1.0);
+  vec3 halfDir = normalize(light + viewDirApprox);
+  float spec = pow(max(dot(normalize(vNormal), halfDir), 0.0), 50.0);
+  float glowAmount = max(-uBrilliance, 0.0);
+  vec3 glowed = mix(color + vec3(0.16, 0.13, 0.09), vec3(1.0), 0.12);
+  color = mix(color, glowed, glowAmount * 0.65);
+  color = mix(color, vec3(1.0), spec * max(uBrilliance, 0.0));
+
   // Fade the mesh's own geometric border to nothing so its rectangular edge
   // never reads as a hard cut against the backdrop image behind it — most
   // visible along the near edge ("en bas") but faded on all four sides so
@@ -81,5 +137,19 @@ void main() {
   // so the terrain still reads as solid as soon as there's anything to see.
   float silenceFade = smoothstep(0.0, 0.05, h);
 
-  gl_FragColor = vec4(color, fadeV * fadeU * silenceFade);
+  // Same falloff as three.js's FogExp2, capped at MAX_FOG_DENSITY (this
+  // app's old fixed fog value, now repositioned as the top of the range
+  // instead of its only setting).
+  const float MAX_FOG_DENSITY = 0.025;
+  float fogDensity = max(uFogAmount, 0.0) * MAX_FOG_DENSITY;
+  float fogFactor = 1.0 - exp(-fogDensity * fogDensity * vFogDepth * vFogDepth);
+  color = mix(color, uFogColor, fogFactor);
+
+  // The other end isn't "less fog" (there's nowhere left for that to go) but
+  // a different effect entirely: fade the terrain toward see-through so the
+  // backdrop shows through it, like a ghost of itself rather than a solid.
+  float transparency = max(-uFogAmount, 0.0);
+  float alpha = fadeV * fadeU * silenceFade * mix(1.0, 0.15, transparency);
+
+  gl_FragColor = vec4(color, alpha);
 }

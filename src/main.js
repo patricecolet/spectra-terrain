@@ -5,7 +5,6 @@ import { Terrain } from './terrain.js';
 import { tracks, trackBySlug, renderGlyphTitle } from './album.js';
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x05070d, 0.025);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
 camera.position.set(0, 26, 34);
@@ -34,8 +33,17 @@ function computeTerrainWidth() {
 
 const DEFAULT_AMPLITUDE = 5;
 const DEFAULT_CURVE = 0;
+const DEFAULT_HUE = 0;
+const DEFAULT_SATURATION = 0;
+const DEFAULT_BRILLIANCE = 0;
+const DEFAULT_FOG = 0;
+const DEFAULT_VIBRATION = 0;
 
-const terrain = new Terrain({ width: computeTerrainWidth(), amplitude: DEFAULT_AMPLITUDE });
+const terrain = new Terrain({
+  width: computeTerrainWidth(),
+  amplitude: DEFAULT_AMPLITUDE,
+  fog: DEFAULT_FOG,
+});
 scene.add(terrain.mesh);
 let manualWidth = false;
 
@@ -250,6 +258,21 @@ const tuningAmplitude = document.getElementById('tuning-amplitude');
 const tuningAmplitudeVal = document.getElementById('tuning-amplitude-val');
 const tuningCurve = document.getElementById('tuning-curve');
 const tuningCurveVal = document.getElementById('tuning-curve-val');
+const tuningHue = document.getElementById('tuning-hue');
+const tuningHueVal = document.getElementById('tuning-hue-val');
+const tuningHueLink = document.getElementById('tuning-hue-link');
+const tuningSaturation = document.getElementById('tuning-saturation');
+const tuningSaturationVal = document.getElementById('tuning-saturation-val');
+const tuningSaturationLink = document.getElementById('tuning-saturation-link');
+const tuningBrilliance = document.getElementById('tuning-brilliance');
+const tuningBrillianceVal = document.getElementById('tuning-brilliance-val');
+const tuningBrillianceLink = document.getElementById('tuning-brilliance-link');
+const tuningFog = document.getElementById('tuning-fog');
+const tuningFogVal = document.getElementById('tuning-fog-val');
+const tuningBackdropLink = document.getElementById('tuning-backdrop-link');
+const backdropEl = document.getElementById('backdrop');
+const tuningVibration = document.getElementById('tuning-vibration');
+const tuningVibrationVal = document.getElementById('tuning-vibration-val');
 
 tuningWidth.value = computeTerrainWidth();
 tuningWidthVal.textContent = Number(tuningWidth.value).toFixed(0);
@@ -257,6 +280,16 @@ tuningAmplitude.value = DEFAULT_AMPLITUDE;
 tuningAmplitudeVal.textContent = Number(tuningAmplitude.value).toFixed(1);
 tuningCurve.value = DEFAULT_CURVE;
 tuningCurveVal.textContent = Number(tuningCurve.value).toFixed(1);
+tuningHue.value = DEFAULT_HUE;
+tuningHueVal.textContent = Number(tuningHue.value).toFixed(2);
+tuningSaturation.value = DEFAULT_SATURATION;
+tuningSaturationVal.textContent = Number(tuningSaturation.value).toFixed(2);
+tuningBrilliance.value = DEFAULT_BRILLIANCE;
+tuningBrillianceVal.textContent = Number(tuningBrilliance.value).toFixed(2);
+tuningFog.value = DEFAULT_FOG;
+tuningFogVal.textContent = Number(tuningFog.value).toFixed(2);
+tuningVibration.value = DEFAULT_VIBRATION;
+tuningVibrationVal.textContent = Number(tuningVibration.value).toFixed(2);
 
 tuningWidth.addEventListener('input', () => {
   manualWidth = true;
@@ -274,6 +307,105 @@ tuningCurve.addEventListener('input', () => {
   tuningCurveVal.textContent = v.toFixed(1);
   terrain.setCurve(v);
 });
+tuningHue.addEventListener('input', () => {
+  const v = Number(tuningHue.value);
+  tuningHueVal.textContent = v.toFixed(2);
+  terrain.setHueShift(v);
+});
+tuningSaturation.addEventListener('input', () => {
+  const v = Number(tuningSaturation.value);
+  tuningSaturationVal.textContent = v.toFixed(2);
+  terrain.setSaturation(v);
+});
+tuningBrilliance.addEventListener('input', () => {
+  const v = Number(tuningBrilliance.value);
+  tuningBrillianceVal.textContent = v.toFixed(2);
+  terrain.setBrilliance(v);
+});
+tuningFog.addEventListener('input', () => {
+  const v = Number(tuningFog.value);
+  tuningFogVal.textContent = v.toFixed(2);
+  terrain.setFog(v);
+});
+tuningVibration.addEventListener('input', () => {
+  const v = Number(tuningVibration.value);
+  tuningVibrationVal.textContent = v.toFixed(2);
+  terrain.setVibration(v);
+});
+
+// Each of the three new looks can instead be slaved to one of the existing
+// knobs, min-to-min and max-to-max (green at courbe's most negative bend,
+// blue at its most positive one; and so on) rather than driven by hand.
+// While linked, its own slider is disabled and repainted from the source
+// every frame in applyLinkedLooks() below, so it still reflects the live
+// value whether that source is being dragged or auto-drifting.
+function setLinked(input, linked) {
+  input.disabled = linked;
+}
+tuningHueLink.addEventListener('change', () => setLinked(tuningHue, tuningHueLink.checked));
+tuningSaturationLink.addEventListener('change', () => setLinked(tuningSaturation, tuningSaturationLink.checked));
+tuningBrillianceLink.addEventListener('change', () => setLinked(tuningBrilliance, tuningBrillianceLink.checked));
+// The three link checkboxes default to checked (see index.html), which fires
+// no 'change' event on load, so the sliders' disabled state has to be synced
+// by hand here once.
+setLinked(tuningHue, tuningHueLink.checked);
+setLinked(tuningSaturation, tuningSaturationLink.checked);
+setLinked(tuningBrilliance, tuningBrillianceLink.checked);
+
+function applyLinkedLooks() {
+  if (tuningHueLink.checked) {
+    // Curve and coloration are both signed ranges centred on 0 ("as
+    // authored"), so this is a direct proportional mapping.
+    const v = Number(tuningCurve.value) / Number(tuningCurve.max);
+    tuningHue.value = v;
+    tuningHueVal.textContent = v.toFixed(2);
+    terrain.setHueShift(v);
+  }
+  if (tuningSaturationLink.checked) {
+    // Inverted on purpose: narrow -> vivid, wide -> black & white.
+    const min = Number(tuningWidth.min);
+    const max = Number(tuningWidth.max);
+    const v = 1 - 2 * ((Number(tuningWidth.value) - min) / (max - min));
+    tuningSaturation.value = v;
+    tuningSaturationVal.textContent = v.toFixed(2);
+    terrain.setSaturation(v);
+  }
+  if (tuningBrillianceLink.checked) {
+    const min = Number(tuningAmplitude.min);
+    const max = Number(tuningAmplitude.max);
+    const v = -1 + 2 * ((Number(tuningAmplitude.value) - min) / (max - min));
+    tuningBrilliance.value = v;
+    tuningBrillianceVal.textContent = v.toFixed(2);
+    terrain.setBrilliance(v);
+  }
+}
+
+// The backdrop is a plain CSS background image, not part of the terrain's
+// shader, so the same three values are approximated with CSS filters instead
+// of the shader's own hue/saturation/brilliance maths -- close enough to read
+// as the same effect, not a pixel-identical match.
+function updateBackdropFilter() {
+  if (!tuningBackdropLink.checked) {
+    backdropEl.style.filter = '';
+    return;
+  }
+  const hue = Number(tuningHue.value);
+  const sat = Number(tuningSaturation.value);
+  const brilliance = Number(tuningBrilliance.value);
+  // hue-rotate sweeps one continuous ring, so green and blue sit at
+  // different distances from this image's native red/orange -- tuned by eye
+  // rather than derived, unlike the courbe/largeur/hauteur link maths above.
+  const hueDeg = hue < 0 ? hue * -100 : hue * -140;
+  const satPct = sat < 0 ? (1 + sat) * 100 : 100 + sat * 100;
+  const glow = Math.max(-brilliance, 0);
+  const chrome = Math.max(brilliance, 0);
+  const brightnessPct = 100 + glow * 18;
+  const contrastPct = 100 + chrome * 20 - glow * 8;
+  backdropEl.style.filter =
+    `hue-rotate(${hueDeg.toFixed(1)}deg) saturate(${satPct.toFixed(0)}%) ` +
+    `brightness(${brightnessPct.toFixed(0)}%) contrast(${contrastPct.toFixed(0)}%)`;
+}
+tuningBackdropLink.addEventListener('change', updateBackdropFilter);
 
 // "Réglages automatiques": each slider drifts on its own toward a fresh
 // random target and picks a new one on arrival, so the terrain keeps
@@ -284,10 +416,17 @@ const autoToggle = document.getElementById('tuning-auto');
 const autoSpeed = document.getElementById('tuning-auto-speed');
 const autoSpeedVal = document.getElementById('tuning-auto-speed-val');
 
+// Coloration/saturation/brillance stay out of this drift entirely -- with
+// "réglages automatiques" on by default, a drifting slider fights any manual
+// drag every frame and the drag never sticks. They're either linked (driven
+// live by applyLinkedLooks() from their source knob) or fully manual, with
+// no third autonomous state of their own.
 const autoParams = [
   { input: tuningWidth, valEl: tuningWidthVal, digits: 0, apply: (v) => terrain.setWidth(v) },
   { input: tuningAmplitude, valEl: tuningAmplitudeVal, digits: 1, apply: (v) => terrain.setAmplitude(v) },
   { input: tuningCurve, valEl: tuningCurveVal, digits: 1, apply: (v) => terrain.setCurve(v) },
+  { input: tuningFog, valEl: tuningFogVal, digits: 2, apply: (v) => terrain.setFog(v) },
+  { input: tuningVibration, valEl: tuningVibrationVal, digits: 2, apply: (v) => terrain.setVibration(v) },
 ];
 
 // Targets stay off the very ends of each slider: an amplitude of 0 flattens
@@ -336,6 +475,7 @@ function updateAutoTuning(dt) {
   manualWidth = true; // the drift owns the width; resize must not snatch it back
   const speed = Number(autoSpeed.value);
   for (const p of autoParams) {
+    if (p.linked && p.linked()) continue;
     const span = Number(p.input.max) - Number(p.input.min);
     // Exponential approach: leaves briskly, eases into the target.
     p.value += (p.target - p.value) * (1 - Math.exp((-dt * speed * 3) / p.seconds));
@@ -380,6 +520,103 @@ if (initialSlug && trackBySlug(initialSlug)) {
   selectTrack(initialSlug);
 }
 
+// Past their own midpoint, courbe and hauteur both raise the terrain's edges
+// or peaks toward the camera's eye-line -- courbe by curling the near/far
+// edges upward (see uCurve in the vertex shader), hauteur simply by making
+// taller peaks. Past a point either one risks poking above the camera and
+// exposing the mesh's flat, cut-off boundary instead of reading as an
+// unbounded terrain. Craning the camera up (zenith) keeps looking steeply
+// enough down to hide that edge -- applied as a frame-to-frame delta, never
+// an absolute reset, so it stacks with the user's own OrbitControls drag
+// instead of fighting it, and the OrbitControls target (the focus point)
+// never moves, only the camera's height.
+const CURVE_LIFT_MAX = 10;
+const AMPLITUDE_LIFT_MAX = 8;
+let lastZenithLift = 0;
+
+function zenithLiftFor(curve, amplitude) {
+  const curveMax = Number(tuningCurve.max);
+  const curveLift = (Math.max(curve, 0) / curveMax) * CURVE_LIFT_MAX;
+
+  const ampMax = Number(tuningAmplitude.max);
+  const ampMid = ampMax / 2;
+  const amplitudeLift = (Math.max(amplitude - ampMid, 0) / (ampMax - ampMid)) * AMPLITUDE_LIFT_MAX;
+
+  return curveLift + amplitudeLift;
+}
+
+function applyZenithLift() {
+  const lift = zenithLiftFor(Number(tuningCurve.value), Number(tuningAmplitude.value));
+  camera.position.y += lift - lastZenithLift;
+  lastZenithLift = lift;
+}
+
+// Two 0..1 loudness figures for the vibration effect below, both read from
+// the same per-frame frequency data terrain.update() already fetches rather
+// than tapping the analyser again.
+//
+// currentLevelFrom is the broadband mean -- moves smoothly, good for "mou"'s
+// slow wave. currentBassFrom keeps only the lowest bands, covering roughly
+// 30-200Hz (bins are log-spaced from 30Hz, see audio.js): a kick's
+// fundamental usually sits at 50-90Hz with its attack/click extending up
+// towards 200-300Hz, so this reaches past just the sub-bass sliver that a
+// narrower band would miss, while stopping short of the bassline's own
+// melodic range further up.
+function currentLevelFrom(freq) {
+  let sum = 0;
+  const n = freq.left.length;
+  for (let i = 0; i < n; i++) sum += freq.left[i] + freq.right[i];
+  return sum / (n * 2 * 255);
+}
+const BASS_CUTOFF_HZ = 200;
+// Only called once analyser.isPlaying, by which point the real sample rate
+// (and so the exact bin count for 200Hz) is known -- see binsUpTo().
+function currentBassFrom(freq) {
+  const bassBins = analyser.binsUpTo(BASS_CUTOFF_HZ);
+  let sum = 0;
+  for (let i = 0; i < bassBins; i++) sum += freq.left[i] + freq.right[i];
+  return sum / (bassBins * 2 * 255);
+}
+
+// Spectral centroid: the energy-weighted average bin index, 0..1 from the
+// lowest band to the highest. Not how loud the sound is (that's the two
+// figures above) but *where* it sits in the spectrum right now -- this is
+// what ties the ripple's own wavelength to the music, independently of
+// "mou"/"dur": a bass-heavy instant (centroid near 0) should ripple wide,
+// a treble-heavy one (centroid near 1) should ripple tight, regardless of
+// which side of the slider is driving its amplitude.
+function spectralCentroidFrom(freq) {
+  let weighted = 0;
+  let total = 0;
+  const n = freq.left.length;
+  for (let i = 0; i < n; i++) {
+    const mag = freq.left[i] + freq.right[i];
+    weighted += mag * i;
+    total += mag;
+  }
+  return total > 0 ? weighted / total / (n - 1) : 0;
+}
+
+// Vibration lives in the terrain's own geometry (see uVibration in the
+// vertex shader), not as a CSS effect on the page: it needs to read as the
+// sound's own flow rippling through the surface, not the whole screen (art
+// included) shaking. Both levels settle back to 0 on their own in silence,
+// even if the slider stays dialled in, so terrain.updateVibration() drives
+// the ripple's strength every frame.
+let vibrationLevel = 0;
+let vibrationBassAvg = 0; // slow-tracking average, only used to detect attacks (see below)
+let vibrationCentroid = 0.5; // smoothed spectral centroid, see spectralCentroidFrom()
+
+// "Dur" is a struck spring, not a value that jumps straight to a target: an
+// attack gives it a push (adds to its velocity) and it settles back to rest
+// under its own stiffness/damping, the way a hit object actually would --
+// smooth and continuous with no slope discontinuity at the moment of the
+// hit, unlike snapping an envelope value toward a target every frame.
+let bassSpringPos = 0;
+let bassSpringVel = 0;
+const BASS_SPRING_STIFFNESS = 140;
+const BASS_SPRING_DAMPING = 16;
+
 let lastFrameTime = performance.now();
 
 function animate() {
@@ -389,11 +626,39 @@ function animate() {
   const dt = Math.min((now - lastFrameTime) / 1000, 0.1); // clamp: tab-switch gaps
   lastFrameTime = now;
   updateAutoTuning(dt);
+  applyLinkedLooks();
+  updateBackdropFilter();
+  applyZenithLift();
 
   if (analyser.isPlaying) {
     const freq = analyser.getFrequencyData();
     terrain.update(freq);
+    vibrationLevel += (currentLevelFrom(freq) - vibrationLevel) * Math.min(1, dt * 10);
+    // Attack detector: track a slow-moving average of the bass band, then
+    // take how far *above* that average the current instant is. A sustained
+    // bassline sits close to its own average and produces almost nothing; a
+    // kick jumps above it and produces a spike -- so "dur" reacts to the
+    // attacks specifically, rather than to bass loudness in general.
+    const bassNow = currentBassFrom(freq);
+    vibrationBassAvg += (bassNow - vibrationBassAvg) * Math.min(1, dt * 3);
+    const drive = Math.max(0, bassNow - vibrationBassAvg) * 4;
+    bassSpringVel += drive * BASS_SPRING_STIFFNESS * dt;
+    vibrationCentroid += (spectralCentroidFrom(freq) - vibrationCentroid) * Math.min(1, dt * 6);
+  } else {
+    vibrationLevel += (0 - vibrationLevel) * Math.min(1, dt * 4);
   }
+  // Spring-damper integration runs every frame regardless of playback state,
+  // so a struck spring still rings down to rest instead of freezing mid-swing
+  // the instant the track stops.
+  const springForce = -BASS_SPRING_STIFFNESS * bassSpringPos - BASS_SPRING_DAMPING * bassSpringVel;
+  bassSpringVel += springForce * dt;
+  bassSpringPos += bassSpringVel * dt;
+  const vibrationBass = Math.max(0, Math.min(1, bassSpringPos));
+  // Below 1 widens the ripple's wavelength (bass-heavy), above 1 tightens it
+  // (treble-heavy) -- multiplies the shader's own base spatial frequencies,
+  // see uVibrationSpatial in the vertex shader.
+  const vibrationSpatial = 0.4 + vibrationCentroid * 2.1;
+  terrain.updateVibration(dt, vibrationLevel, vibrationBass, vibrationSpatial);
 
   controls.update();
   renderer.render(scene, camera);
