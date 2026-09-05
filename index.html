@@ -118,6 +118,17 @@
       display: flex; align-items: center; justify-content: center;
     }
     #tuning-toggle:hover { background: rgba(35, 55, 90, 0.65); }
+    #game-toggle {
+      position: fixed; right: 52px; bottom: 14px; z-index: 11;
+      background: rgba(5, 7, 13, 0.6);
+      border: 1px solid rgba(207, 232, 255, 0.15);
+      border-radius: 8px;
+      width: 30px; height: 30px;
+      color: #cfe8ff; font-size: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #game-toggle:hover { background: rgba(35, 55, 90, 0.65); }
+    #game-toggle.active { background: rgba(60, 130, 200, 0.45); border-color: #7fc4ff; }
     #tuning {
       position: fixed; right: 14px; bottom: 52px; z-index: 10;
       background: rgba(5, 7, 13, 0.6);
@@ -168,6 +179,37 @@
     }
     .style-btn:hover { background: #1a2e52; }
     .style-btn.active { background: rgba(60, 130, 200, 0.45); border-color: #7fc4ff; }
+
+    #password-overlay {
+      position: fixed; inset: 0; z-index: 20;
+      background: rgba(5, 7, 13, 0.7);
+      display: flex; align-items: center; justify-content: center;
+    }
+    #password-overlay.hidden { display: none; }
+    #password-box {
+      background: rgba(10, 14, 24, 0.95);
+      border: 1px solid rgba(207, 232, 255, 0.2);
+      border-radius: 10px;
+      padding: 18px 20px;
+      display: flex; flex-direction: column; gap: 10px;
+      color: #cfe8ff; font-size: 13px;
+      min-width: 220px;
+    }
+    #password-input {
+      background: #0c1220; color: #cfe8ff;
+      border: 1px solid #2a4166; border-radius: 6px;
+      padding: 7px 9px; font-size: 13px;
+    }
+    #password-error {
+      color: #ff8f8f; font-size: 11px; min-height: 1.2em;
+    }
+    #password-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    #password-actions button {
+      background: #12203a; color: #cfe8ff; border: 1px solid #2a4166;
+      border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+    }
+    #password-actions button:hover { background: #1a2e52; }
+    #password-submit { background: rgba(60, 130, 200, 0.45); border-color: #7fc4ff; }
   </style>
 </head>
 <body>
@@ -189,7 +231,20 @@
     <button id="stop-btn">stop</button>
   </div>
 
-  <button id="tuning-toggle" title="réglages">⚙</button>
+  <button id="tuning-toggle" title="réglages (shift+clic)">⚙</button>
+  <button id="game-toggle" title="jeu (flèches)">🎮</button>
+
+  <div id="password-overlay" class="hidden">
+    <div id="password-box">
+      <span>mot de passe</span>
+      <input type="password" id="password-input" autocomplete="off" />
+      <div id="password-error"></div>
+      <div id="password-actions">
+        <button id="password-cancel" type="button">annuler</button>
+        <button id="password-submit" type="button">valider</button>
+      </div>
+    </div>
+  </div>
   <div id="tuning" class="hidden">
     <details>
       <summary>terrain</summary>

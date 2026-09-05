@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { AudioAnalyser } from './audio.js';
 import { Terrain } from './terrain.js';
 import { tracks, trackBySlug, renderGlyphTitle, DEFAULT_VISIBLE_SLUGS } from './album.js';
+import { Game } from './game.js';
 
 const scene = new THREE.Scene();
 
@@ -46,6 +47,14 @@ const terrain = new Terrain({
 });
 scene.add(terrain.mesh);
 let manualWidth = false;
+
+const game = new Game({ scene, terrain });
+const gameToggle = document.getElementById('game-toggle');
+gameToggle.addEventListener('click', () => {
+  const enabled = !game.enabled;
+  game.setEnabled(enabled);
+  gameToggle.classList.toggle('active', enabled);
+});
 
 const analyser = new AudioAnalyser(terrain.bins);
 
@@ -516,8 +525,58 @@ function updateAutoTuning(dt) {
 
 const tuningPanel = document.getElementById('tuning');
 const tuningToggle = document.getElementById('tuning-toggle');
-tuningToggle.addEventListener('click', () => {
-  tuningPanel.classList.toggle('hidden');
+
+// A casual gate against a site visitor stumbling into the tuning panel, not
+// real security: this check runs in the browser, so anyone reading this file
+// already has the password. Shift+click on the gear shows the prompt; once
+// unlocked, it stays that way for the tab (sessionStorage) and the gear goes
+// back to toggling the panel directly.
+const SETTINGS_PASSWORD = 'langmuir';
+const UNLOCK_KEY = 'tuning-unlocked';
+const passwordOverlay = document.getElementById('password-overlay');
+const passwordInput = document.getElementById('password-input');
+const passwordError = document.getElementById('password-error');
+const passwordCancel = document.getElementById('password-cancel');
+const passwordSubmit = document.getElementById('password-submit');
+
+function isSettingsUnlocked() {
+  return sessionStorage.getItem(UNLOCK_KEY) === '1';
+}
+
+function showPasswordPrompt() {
+  passwordError.textContent = '';
+  passwordInput.value = '';
+  passwordOverlay.classList.remove('hidden');
+  passwordInput.focus();
+}
+
+function hidePasswordPrompt() {
+  passwordOverlay.classList.add('hidden');
+}
+
+function submitPassword() {
+  if (passwordInput.value === SETTINGS_PASSWORD) {
+    sessionStorage.setItem(UNLOCK_KEY, '1');
+    hidePasswordPrompt();
+    tuningPanel.classList.remove('hidden');
+  } else {
+    passwordError.textContent = 'mot de passe incorrect';
+  }
+}
+
+passwordSubmit.addEventListener('click', submitPassword);
+passwordCancel.addEventListener('click', hidePasswordPrompt);
+passwordInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') submitPassword();
+  if (e.key === 'Escape') hidePasswordPrompt();
+});
+
+tuningToggle.addEventListener('click', (e) => {
+  if (isSettingsUnlocked()) {
+    tuningPanel.classList.toggle('hidden');
+  } else if (e.shiftKey) {
+    showPasswordPrompt();
+  }
 });
 
 const styleButtons = document.querySelectorAll('.style-btn');
@@ -714,6 +773,7 @@ function animate() {
   // see uVibrationSpatial in the vertex shader.
   const vibrationSpatial = 0.4 + vibrationCentroid * 2.1;
   terrain.updateVibration(dt, vibrationLevel, vibrationBass, vibrationSpatial);
+  game.update(dt);
 
   controls.update();
   renderer.render(scene, camera);

@@ -137,6 +137,62 @@ export class Terrain {
     return next === 1;
   }
 
+  // Bilinear sample of one channel (0 = R/left, 1 = G/right) of dataArray,
+  // mirroring the texture's own filtering/wrapping (LinearFilter, U clamped,
+  // V repeated) instead of doing this on the GPU: the game needs to query
+  // "how tall is the terrain here" from plain JS, and the vertex shader's
+  // displacement never touches the CPU-side geometry buffers, so there is
+  // nothing to raycast against otherwise.
+  _sampleTexel(u, v, channel) {
+    const bins = this.bins;
+    const rows = this.historyLength;
+
+    const uc = Math.min(Math.max(u, 0), 1);
+    const fx = uc * bins - 0.5;
+    let x0 = Math.floor(fx);
+    let x1 = x0 + 1;
+    const tx = fx - x0;
+    x0 = Math.min(Math.max(x0, 0), bins - 1);
+    x1 = Math.min(Math.max(x1, 0), bins - 1);
+
+    const vw = v - Math.floor(v); // RepeatWrapping
+    const fy = vw * rows - 0.5;
+    let y0 = Math.floor(fy);
+    let y1 = y0 + 1;
+    const ty = fy - y0;
+    y0 = ((y0 % rows) + rows) % rows;
+    y1 = ((y1 % rows) + rows) % rows;
+
+    const get = (xi, yi) => this.dataArray[(yi * bins + xi) * 4 + channel];
+    const top = get(x0, y0) + (get(x1, y0) - get(x0, y0)) * tx;
+    const bot = get(x0, y1) + (get(x1, y1) - get(x0, y1)) * tx;
+    return (top + (bot - top) * ty) / 255;
+  }
+
+  // World-space height (audio-driven bump + the static courbe bend, not the
+  // cosmetic vibration ripple -- collision needs a height that doesn't jitter
+  // frame to frame) at (worldX, worldZ), for the game's ball to walk on.
+  // Mirrors sampleHeightValue() and the courbe term in terrain.vert.glsl.
+  sampleHeightAtWorld(worldX, worldZ) {
+    const u = 0.5 + worldX / this.width;
+    const v = 0.5 - worldZ / this.depth;
+
+    const bassCenter = this.material.uniforms.uBassCenter.value;
+    const isLeft = u < 0.5;
+    const localU = isLeft ? u / 0.5 : (u - 0.5) / 0.5;
+    const mix = (a, b, t) => a + (b - a) * t;
+    const sampleU = isLeft ? mix(localU, 1 - localU, bassCenter) : mix(1 - localU, localU, bassCenter);
+    const channel = isLeft ? 0 : 1;
+
+    const value = this._sampleTexel(sampleU, v + this.material.uniforms.uOffset.value, channel);
+    const height = value * this.material.uniforms.uAmplitude.value;
+
+    const depthNorm = -worldZ / (this.depth / 2); // local Y (pre-rotation) = -worldZ, see Game
+    const curveOffset = this.material.uniforms.uCurve.value * depthNorm * depthNorm;
+
+    return height + curveOffset;
+  }
+
   update({ left, right }) {
     const row = this.frame % this.historyLength;
     const rowOffset = row * this.bins * 4;
