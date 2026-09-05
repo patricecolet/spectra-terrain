@@ -87,7 +87,13 @@ function buildTracklist() {
     const row = document.createElement('div');
     renderGlyphTitle(row, track.title, 16);
     btn.appendChild(row);
-    btn.addEventListener('click', () => playTrack(track.slug, { pushHash: true }));
+    // Clicking the track that's already playing stops it -- a deliberate
+    // stop, so it must not hand off to the next track even with "enchaînement
+    // automatique" on (stopPlayback() never fires analyser.onEnded).
+    btn.addEventListener('click', () => {
+      if (track.slug === currentSlug) stopPlayback();
+      else playTrack(track.slug, { pushHash: true });
+    });
     tracklistEl.appendChild(btn);
   });
 }
