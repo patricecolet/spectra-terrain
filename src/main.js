@@ -65,6 +65,7 @@ const trees = new Trees({ scene, terrain });
 // live by the shared "brouillard" slider, see applyFog() below.
 scene.fog = new THREE.FogExp2(0x140a1c, 0);
 const buildings = new Buildings({ scene, terrain });
+buildings.setAmplitude(DEFAULT_AMPLITUDE); // match terrain's own initial "hauteur", see the amplitude slider below
 
 // The colour/brilliance/fog tuning knobs apply to whichever view is showing
 // (and to the one that isn't, so switching modes never looks unstyled) --
@@ -82,7 +83,7 @@ function applyFog(v) {
 }
 
 const modeToggle = document.getElementById('mode-toggle');
-let vizMode = 'terrain';
+let vizMode = 'buildings';
 function setVizMode(mode) {
   vizMode = mode;
   const isBuildings = mode === 'buildings';
@@ -113,7 +114,6 @@ gameToggle.addEventListener('click', () => {
 const analyser = new AudioAnalyser(terrain.bins);
 
 const viewToggle = document.getElementById('view-toggle');
-const animToggle = document.getElementById('anim-toggle');
 const stopBtn = document.getElementById('stop-btn');
 const tracklistEl = document.getElementById('tracklist');
 const centerStage = document.getElementById('center-stage');
@@ -125,10 +125,9 @@ const topLogo = document.getElementById('logo');
 let currentSlug = null;
 let pendingSlug = null; // armed by a deep link, waiting for a user gesture
 let hasStartedPlayback = false;
-let animVisible = true;
 
 function updateCanvasVisibility() {
-  renderer.domElement.classList.toggle('active', hasStartedPlayback && animVisible);
+  renderer.domElement.classList.toggle('active', hasStartedPlayback);
 }
 
 // Which tracks show in the top row and get chained into -- toggled from the
@@ -190,16 +189,22 @@ function stopPlayback() {
 
 const tuningAutochain = document.getElementById('tuning-autochain');
 
+// Two sliders, one control: the tuning panel's own (password-gated, with a
+// live % readout) and the always-visible one in the now-playing bar -- kept
+// in sync both ways so dragging either one moves both.
 const tuningVolume = document.getElementById('tuning-volume');
 const tuningVolumeVal = document.getElementById('tuning-volume-val');
-tuningVolume.value = DEFAULT_VOLUME;
-tuningVolumeVal.textContent = `${Math.round(DEFAULT_VOLUME * 100)}%`;
-analyser.setVolume(DEFAULT_VOLUME);
-tuningVolume.addEventListener('input', () => {
-  const v = Number(tuningVolume.value);
+const nowPlayingVolume = document.getElementById('now-playing-volume');
+
+function applyVolume(v) {
+  tuningVolume.value = v;
   tuningVolumeVal.textContent = `${Math.round(v * 100)}%`;
+  nowPlayingVolume.value = v;
   analyser.setVolume(v);
-});
+}
+applyVolume(DEFAULT_VOLUME);
+tuningVolume.addEventListener('input', () => applyVolume(Number(tuningVolume.value)));
+nowPlayingVolume.addEventListener('input', () => applyVolume(Number(nowPlayingVolume.value)));
 
 const tuningTreeDensity = document.getElementById('tuning-tree-density');
 const tuningTreeDensityVal = document.getElementById('tuning-tree-density-val');
@@ -222,6 +227,17 @@ tuningBuildingsThreshold.addEventListener('input', () => {
   buildings.setProfileThreshold(v);
 });
 
+const DEFAULT_BUILDINGS_GAMMA = 6;
+const tuningBuildingsGamma = document.getElementById('tuning-buildings-gamma');
+const tuningBuildingsGammaVal = document.getElementById('tuning-buildings-gamma-val');
+tuningBuildingsGamma.value = DEFAULT_BUILDINGS_GAMMA;
+tuningBuildingsGammaVal.textContent = Number(DEFAULT_BUILDINGS_GAMMA).toFixed(1);
+tuningBuildingsGamma.addEventListener('input', () => {
+  const v = Number(tuningBuildingsGamma.value);
+  tuningBuildingsGammaVal.textContent = v.toFixed(1);
+  buildings.setAmplitudeGamma(v);
+});
+
 const DEFAULT_BUILDINGS_COLOR = 1.0;
 const tuningBuildingsColor = document.getElementById('tuning-buildings-color');
 const tuningBuildingsColorVal = document.getElementById('tuning-buildings-color-val');
@@ -231,6 +247,28 @@ tuningBuildingsColor.addEventListener('input', () => {
   const v = Number(tuningBuildingsColor.value);
   tuningBuildingsColorVal.textContent = v.toFixed(2);
   buildings.setAmplitudeColorAmount(v);
+});
+
+const DEFAULT_CLUSTER_COUNT = 10;
+const tuningClusterCount = document.getElementById('tuning-buildings-cluster-count');
+const tuningClusterCountVal = document.getElementById('tuning-buildings-cluster-count-val');
+tuningClusterCount.value = DEFAULT_CLUSTER_COUNT;
+tuningClusterCountVal.textContent = DEFAULT_CLUSTER_COUNT;
+tuningClusterCount.addEventListener('input', () => {
+  const v = Number(tuningClusterCount.value);
+  tuningClusterCountVal.textContent = v;
+  buildings.setClusterCount(v);
+});
+
+const DEFAULT_MAX_CLUSTER_SIZE = 8;
+const tuningClusterSize = document.getElementById('tuning-buildings-cluster-size');
+const tuningClusterSizeVal = document.getElementById('tuning-buildings-cluster-size-val');
+tuningClusterSize.value = DEFAULT_MAX_CLUSTER_SIZE;
+tuningClusterSizeVal.textContent = DEFAULT_MAX_CLUSTER_SIZE;
+tuningClusterSize.addEventListener('input', () => {
+  const v = Number(tuningClusterSize.value);
+  tuningClusterSizeVal.textContent = v;
+  buildings.setMaxClusterSize(v);
 });
 
 // Only among the currently visible tracks (see visibleSlugs above) -- wraps
@@ -379,14 +417,6 @@ viewToggle.addEventListener('click', () => {
 
 stopBtn.addEventListener('click', stopPlayback);
 
-// Hides the 3D visual only -- playback keeps going, just without the terrain
-// (e.g. to look at the artwork itself while listening).
-animToggle.addEventListener('click', () => {
-  animVisible = !animVisible;
-  animToggle.textContent = animVisible ? "masquer l'animation" : "afficher l'animation";
-  updateCanvasVisibility();
-});
-
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -445,6 +475,7 @@ tuningAmplitude.addEventListener('input', () => {
   const v = Number(tuningAmplitude.value);
   tuningAmplitudeVal.textContent = v.toFixed(1);
   terrain.setAmplitude(v);
+  buildings.setAmplitude(v);
 });
 tuningCurve.addEventListener('input', () => {
   const v = Number(tuningCurve.value);
@@ -568,11 +599,10 @@ const autoSpeedVal = document.getElementById('tuning-auto-speed-val');
 // no third autonomous state of their own.
 const autoParams = [
   { input: tuningWidth, valEl: tuningWidthVal, digits: 0, apply: (v) => terrain.setWidth(v) },
-  { input: tuningAmplitude, valEl: tuningAmplitudeVal, digits: 1, apply: (v) => terrain.setAmplitude(v) },
+  { input: tuningAmplitude, valEl: tuningAmplitudeVal, digits: 1, apply: (v) => { terrain.setAmplitude(v); buildings.setAmplitude(v); } },
   { input: tuningCurve, valEl: tuningCurveVal, digits: 1, apply: (v) => { terrain.setCurve(v); buildings.setCurve(v); } },
   { input: tuningFog, valEl: tuningFogVal, digits: 2, apply: (v) => applyFog(v) },
   { input: tuningVibration, valEl: tuningVibrationVal, digits: 2, apply: (v) => terrain.setVibration(v) },
-  { input: tuningBuildingsThreshold, valEl: tuningBuildingsThresholdVal, digits: 2, apply: (v) => buildings.setProfileThreshold(v) },
 ];
 
 // Targets stay off the very ends of each slider: an amplitude of 0 flattens
@@ -872,6 +902,13 @@ function animate() {
     vibrationCentroid += (spectralCentroidFrom(freq) - vibrationCentroid) * Math.min(1, dt * 6);
   } else {
     vibrationLevel += (0 - vibrationLevel) * Math.min(1, dt * 4);
+    // Not gated on isPlaying like terrain.update() above: a paused terrain
+    // just reads as a still image, but buildings are discrete objects
+    // clearly mid-flight, so freezing them through any playback gap (a
+    // track ending before the next starts, autochain's non-gapless
+    // fallback) read as a bug rather than a pause. Passing no freq here
+    // means it only repositions/retires what's already spawned.
+    buildings.update(null);
   }
   // Spring-damper integration runs every frame regardless of playback state,
   // so a struck spring still rings down to rest instead of freezing mid-swing

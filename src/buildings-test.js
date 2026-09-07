@@ -256,9 +256,14 @@ function updateInstances() {
   mesh.instanceMatrix.needsUpdate = true;
 }
 
+// setInterval, not requestAnimationFrame: this tool doubles as an unattended
+// profile-capture rig (see exportProfile/the 'p' key), often left running in
+// a background/hidden browser tab for a whole track's length -- rAF fully
+// stops in a hidden tab (no throttling, it just never fires again), which
+// silently froze frame/profileSum at 0 for the entire capture. setInterval
+// only gets throttled to ~1/s when hidden, so the profile keeps accumulating
+// (just coarser) instead of not accumulating at all.
 function animate() {
-  requestAnimationFrame(animate);
-
   if (analyser.isPlaying) {
     const { left, right } = analyser.getFrequencyData();
 
@@ -280,7 +285,7 @@ function animate() {
   controls.update();
   renderer.render(scene, camera);
 }
-animate();
+setInterval(animate, 16);
 
 window.__debug = {
   mesh, renderer, scene, camera, analyser, slots,

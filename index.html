@@ -100,13 +100,19 @@
     #now-playing.visible { opacity: 1; transform: translateY(0); }
     #now-playing .glyph-row { display: flex; align-items: flex-end; gap: 1px; }
     #now-playing .glyph-row img.glyph { width: auto; display: block; filter: brightness(0) invert(1); }
-    #view-toggle, #mode-toggle, #anim-toggle, #stop-btn {
+    #view-toggle, #mode-toggle, #stop-btn {
       background: #12203a; color: #cfe8ff; border: 1px solid #2a4166;
       border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
     }
-    #view-toggle:hover, #mode-toggle:hover, #anim-toggle:hover, #stop-btn:hover { background: #1a2e52; }
+    #view-toggle:hover, #mode-toggle:hover, #stop-btn:hover { background: #1a2e52; }
     #stop-btn { color: #ffb3b3; border-color: #4a2a2a; }
     #stop-btn:hover { background: #3a1a1a; }
+    #now-playing-volume-wrap {
+      display: flex; align-items: center; gap: 6px;
+      background: #12203a; border: 1px solid #2a4166; border-radius: 6px;
+      padding: 5px 10px; font-size: 12px; color: #cfe8ff;
+    }
+    #now-playing-volume { width: 70px; accent-color: #7fc4ff; }
 
     #tuning-toggle {
       position: fixed; right: 14px; bottom: 14px; z-index: 11;
@@ -238,7 +244,10 @@
     <div class="glyph-row" id="now-playing-title"></div>
     <button id="view-toggle">vue : vallée au milieu</button>
     <button id="mode-toggle">vue : terrain</button>
-    <button id="anim-toggle">masquer l'animation</button>
+    <div id="now-playing-volume-wrap">
+      <span>volume</span>
+      <input type="range" id="now-playing-volume" min="0" max="1" step="0.01" autocomplete="off" />
+    </div>
     <button id="stop-btn">stop</button>
   </div>
 
@@ -357,11 +366,23 @@
       <summary>immeubles</summary>
       <label>
         <span class="row"><span>seuil (profil)</span><span id="tuning-buildings-threshold-val"></span></span>
-        <input type="range" id="tuning-buildings-threshold" min="0" max="1" step="0.01" autocomplete="off" />
+        <input type="range" id="tuning-buildings-threshold" min="0" max="1.2" step="0.01" autocomplete="off" />
+      </label>
+      <label>
+        <span class="row"><span>courbe hauteur (dynamique)</span><span id="tuning-buildings-gamma-val"></span></span>
+        <input type="range" id="tuning-buildings-gamma" min="0.5" max="6" step="0.1" autocomplete="off" />
       </label>
       <label>
         <span class="row"><span>couleur selon amplitude</span><span id="tuning-buildings-color-val"></span></span>
         <input type="range" id="tuning-buildings-color" min="0" max="1" step="0.01" autocomplete="off" />
+      </label>
+      <label>
+        <span class="row"><span>îlots (nombre)</span><span id="tuning-buildings-cluster-count-val"></span></span>
+        <input type="range" id="tuning-buildings-cluster-count" min="0" max="10" step="1" autocomplete="off" />
+      </label>
+      <label>
+        <span class="row"><span>îlots (taille max, blocs)</span><span id="tuning-buildings-cluster-size-val"></span></span>
+        <input type="range" id="tuning-buildings-cluster-size" min="2" max="8" step="1" autocomplete="off" />
       </label>
     </details>
   </div>
