@@ -206,6 +206,25 @@ export class Terrain {
     return height + curveOffset;
   }
 
+  // Inverse of sampleHeightAtWorld's bin lookup: given a frequency bin index
+  // and channel (0 = left, 1 = right), returns the world X where that bin
+  // currently reads from -- e.g. so a tree can be planted at the exact lane a
+  // spectral peak was seen in, on whichever side of centre uBassCenter
+  // currently puts it.
+  worldXForBin(bin, channel) {
+    const sampleU = (bin + 0.5) / this.bins;
+    const bc = this.material.uniforms.uBassCenter.value;
+    let localU;
+    if (channel === 0) {
+      localU = Math.abs(1 - 2 * bc) < 1e-6 ? sampleU : (sampleU - bc) / (1 - 2 * bc);
+    } else {
+      localU = Math.abs(2 * bc - 1) < 1e-6 ? sampleU : (sampleU - (1 - bc)) / (2 * bc - 1);
+    }
+    localU = Math.min(Math.max(localU, 0), 1);
+    const u = channel === 0 ? localU * 0.5 : 0.5 + localU * 0.5;
+    return (u - 0.5) * this.width;
+  }
+
   update({ left, right }) {
     const row = this.frame % this.historyLength;
     const rowOffset = row * this.bins * 4;

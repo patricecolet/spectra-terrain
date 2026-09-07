@@ -25,6 +25,8 @@ export class AudioAnalyser {
     this.freqDataR = new Uint8Array(bins);
     this.bandRanges = null;
     this.isPlaying = false;
+    this.gainNode = null;
+    this._volume = 1; // applied to gainNode once the graph exists -- see _ensureGraph()
 
     // Sources that are playing or waiting for their scheduled start time.
     // Normally one; two during the overlap where the next track is already
@@ -164,6 +166,10 @@ export class AudioAnalyser {
 
   _ensureGraph() {
     if (this.splitter) return;
+    this.gainNode = this.context.createGain();
+    this.gainNode.gain.value = this._volume;
+    this.gainNode.connect(this.context.destination);
+
     this.splitter = this.context.createChannelSplitter(2);
     this.analyserL = this.context.createAnalyser();
     this.analyserR = this.context.createAnalyser();
@@ -174,6 +180,14 @@ export class AudioAnalyser {
     this.splitter.connect(this.analyserL, 0);
     this.splitter.connect(this.analyserR, 1);
     this._buildBandRanges(this.context.sampleRate);
+  }
+
+  // Safe to call before playback starts -- the value is kept and applied to
+  // gainNode as soon as _ensureGraph() creates it, and applied immediately
+  // for every source connected so far otherwise.
+  setVolume(value) {
+    this._volume = value;
+    if (this.gainNode) this.gainNode.gain.value = value;
   }
 
   // Starts now, dropping whatever was playing or queued: this is a deliberate
@@ -188,9 +202,11 @@ export class AudioAnalyser {
     const source = this.context.createBufferSource();
     source.buffer = audioBuffer;
 
-    // Actual playback goes straight to the speakers; the splitter+analysers
-    // are a parallel, non-destructive tap used only for reading the spectrum.
-    source.connect(this.context.destination);
+    // Actual playback goes through the gain node to the speakers; the
+    // splitter+analysers are a parallel, non-destructive tap (pre-volume, so
+    // the visualisation doesn't shrink along with the sound) used only for
+    // reading the spectrum.
+    source.connect(this.gainNode);
     source.connect(this.splitter);
 
     const at = Math.max(when, this.context.currentTime);

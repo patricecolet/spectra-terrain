@@ -4,6 +4,8 @@ import { AudioAnalyser } from './audio.js';
 import { Terrain } from './terrain.js';
 import { tracks, trackBySlug, renderGlyphTitle, DEFAULT_VISIBLE_SLUGS } from './album.js';
 import { Game } from './game.js';
+import { Trees } from './trees.js';
+import { Buildings } from './buildings.js';
 
 const scene = new THREE.Scene();
 
@@ -39,6 +41,8 @@ const DEFAULT_SATURATION = 0;
 const DEFAULT_BRILLIANCE = 0;
 const DEFAULT_FOG = 0;
 const DEFAULT_VIBRATION = 0;
+const DEFAULT_VOLUME = 1;
+const DEFAULT_TREE_DENSITY = 1;
 
 const terrain = new Terrain({
   width: computeTerrainWidth(),
@@ -47,6 +51,50 @@ const terrain = new Terrain({
 });
 scene.add(terrain.mesh);
 let manualWidth = false;
+
+const trees = new Trees({ scene, terrain });
+
+// Alternative look: real moving buildings instead of the rock terrain's own
+// fixed-mesh waterfall (see buildings.js's header for why). Same scene,
+// same camera/analyser -- only one of the two is visible at a time (see
+// mode-toggle below), and scene-wide fog does the same "fade into the
+// backdrop" job the terrain's own shader-side fog does for a plain
+// material like the buildings' (its ShaderMaterial keeps fog:false by
+// default, so this has no effect on the terrain itself). Density starts at
+// 0 (neutral, matching terrain's own "0 = no fog" convention) -- driven
+// live by the shared "brouillard" slider, see applyFog() below.
+scene.fog = new THREE.FogExp2(0x140a1c, 0);
+const buildings = new Buildings({ scene, terrain });
+
+// The colour/brilliance/fog tuning knobs apply to whichever view is showing
+// (and to the one that isn't, so switching modes never looks unstyled) --
+// each wrapper drives both terrain's own shader uniforms and buildings' own
+// approximation of the same effect in one place, instead of every call site
+// remembering to update both.
+const MAX_BUILDINGS_FOG_DENSITY = 0.03;
+function applyHueShift(v) { terrain.setHueShift(v); buildings.setHueShift(v); }
+function applySaturation(v) { terrain.setSaturation(v); buildings.setSaturation(v); }
+function applyBrilliance(v) { terrain.setBrilliance(v); buildings.setBrilliance(v); }
+function applyFog(v) {
+  terrain.setFog(v);
+  buildings.setFogAmount(v);
+  scene.fog.density = Math.max(v, 0) * MAX_BUILDINGS_FOG_DENSITY;
+}
+
+const modeToggle = document.getElementById('mode-toggle');
+let vizMode = 'terrain';
+function setVizMode(mode) {
+  vizMode = mode;
+  const isBuildings = mode === 'buildings';
+  terrain.mesh.visible = !isBuildings;
+  trees.setVisible(!isBuildings);
+  buildings.setEnabled(isBuildings);
+  modeToggle.textContent = isBuildings ? 'vue : immeubles' : 'vue : terrain';
+}
+setVizMode(vizMode);
+modeToggle.addEventListener('click', () => {
+  setVizMode(vizMode === 'terrain' ? 'buildings' : 'terrain');
+});
 
 const game = new Game({ scene, terrain });
 const gameToggle = document.getElementById('game-toggle');
@@ -141,6 +189,49 @@ function stopPlayback() {
 }
 
 const tuningAutochain = document.getElementById('tuning-autochain');
+
+const tuningVolume = document.getElementById('tuning-volume');
+const tuningVolumeVal = document.getElementById('tuning-volume-val');
+tuningVolume.value = DEFAULT_VOLUME;
+tuningVolumeVal.textContent = `${Math.round(DEFAULT_VOLUME * 100)}%`;
+analyser.setVolume(DEFAULT_VOLUME);
+tuningVolume.addEventListener('input', () => {
+  const v = Number(tuningVolume.value);
+  tuningVolumeVal.textContent = `${Math.round(v * 100)}%`;
+  analyser.setVolume(v);
+});
+
+const tuningTreeDensity = document.getElementById('tuning-tree-density');
+const tuningTreeDensityVal = document.getElementById('tuning-tree-density-val');
+tuningTreeDensity.value = DEFAULT_TREE_DENSITY;
+tuningTreeDensityVal.textContent = Number(DEFAULT_TREE_DENSITY).toFixed(1);
+tuningTreeDensity.addEventListener('input', () => {
+  const v = Number(tuningTreeDensity.value);
+  tuningTreeDensityVal.textContent = v.toFixed(1);
+  trees.setDensity(v);
+});
+
+const DEFAULT_BUILDINGS_THRESHOLD = 1.0;
+const tuningBuildingsThreshold = document.getElementById('tuning-buildings-threshold');
+const tuningBuildingsThresholdVal = document.getElementById('tuning-buildings-threshold-val');
+tuningBuildingsThreshold.value = DEFAULT_BUILDINGS_THRESHOLD;
+tuningBuildingsThresholdVal.textContent = Number(DEFAULT_BUILDINGS_THRESHOLD).toFixed(2);
+tuningBuildingsThreshold.addEventListener('input', () => {
+  const v = Number(tuningBuildingsThreshold.value);
+  tuningBuildingsThresholdVal.textContent = v.toFixed(2);
+  buildings.setProfileThreshold(v);
+});
+
+const DEFAULT_BUILDINGS_COLOR = 1.0;
+const tuningBuildingsColor = document.getElementById('tuning-buildings-color');
+const tuningBuildingsColorVal = document.getElementById('tuning-buildings-color-val');
+tuningBuildingsColor.value = DEFAULT_BUILDINGS_COLOR;
+tuningBuildingsColorVal.textContent = Number(DEFAULT_BUILDINGS_COLOR).toFixed(2);
+tuningBuildingsColor.addEventListener('input', () => {
+  const v = Number(tuningBuildingsColor.value);
+  tuningBuildingsColorVal.textContent = v.toFixed(2);
+  buildings.setAmplitudeColorAmount(v);
+});
 
 // Only among the currently visible tracks (see visibleSlugs above) -- wraps
 // to itself if just one is shown.
@@ -243,7 +334,12 @@ async function selectTrack(slug, { pushHash = false, chained = false } = {}) {
   }
 
   showTrack(track, { pushHash: false });
-  if (!chained) terrain.reset();
+  if (!chained) {
+    terrain.reset();
+    trees.reset();
+    buildings.reset();
+    buildings.loadProfile(track.slug);
+  }
 
   try {
     await analyser.loadURL(track.file);
@@ -354,26 +450,27 @@ tuningCurve.addEventListener('input', () => {
   const v = Number(tuningCurve.value);
   tuningCurveVal.textContent = v.toFixed(1);
   terrain.setCurve(v);
+  buildings.setCurve(v);
 });
 tuningHue.addEventListener('input', () => {
   const v = Number(tuningHue.value);
   tuningHueVal.textContent = v.toFixed(2);
-  terrain.setHueShift(v);
+  applyHueShift(v);
 });
 tuningSaturation.addEventListener('input', () => {
   const v = Number(tuningSaturation.value);
   tuningSaturationVal.textContent = v.toFixed(2);
-  terrain.setSaturation(v);
+  applySaturation(v);
 });
 tuningBrilliance.addEventListener('input', () => {
   const v = Number(tuningBrilliance.value);
   tuningBrillianceVal.textContent = v.toFixed(2);
-  terrain.setBrilliance(v);
+  applyBrilliance(v);
 });
 tuningFog.addEventListener('input', () => {
   const v = Number(tuningFog.value);
   tuningFogVal.textContent = v.toFixed(2);
-  terrain.setFog(v);
+  applyFog(v);
 });
 tuningVibration.addEventListener('input', () => {
   const v = Number(tuningVibration.value);
@@ -407,7 +504,7 @@ function applyLinkedLooks() {
     const v = Number(tuningCurve.value) / Number(tuningCurve.max);
     tuningHue.value = v;
     tuningHueVal.textContent = v.toFixed(2);
-    terrain.setHueShift(v);
+    applyHueShift(v);
   }
   if (tuningSaturationLink.checked) {
     // Inverted on purpose: narrow -> vivid, wide -> black & white.
@@ -416,7 +513,7 @@ function applyLinkedLooks() {
     const v = 1 - 2 * ((Number(tuningWidth.value) - min) / (max - min));
     tuningSaturation.value = v;
     tuningSaturationVal.textContent = v.toFixed(2);
-    terrain.setSaturation(v);
+    applySaturation(v);
   }
   if (tuningBrillianceLink.checked) {
     const min = Number(tuningAmplitude.min);
@@ -424,7 +521,7 @@ function applyLinkedLooks() {
     const v = -1 + 2 * ((Number(tuningAmplitude.value) - min) / (max - min));
     tuningBrilliance.value = v;
     tuningBrillianceVal.textContent = v.toFixed(2);
-    terrain.setBrilliance(v);
+    applyBrilliance(v);
   }
 }
 
@@ -472,9 +569,10 @@ const autoSpeedVal = document.getElementById('tuning-auto-speed-val');
 const autoParams = [
   { input: tuningWidth, valEl: tuningWidthVal, digits: 0, apply: (v) => terrain.setWidth(v) },
   { input: tuningAmplitude, valEl: tuningAmplitudeVal, digits: 1, apply: (v) => terrain.setAmplitude(v) },
-  { input: tuningCurve, valEl: tuningCurveVal, digits: 1, apply: (v) => terrain.setCurve(v) },
-  { input: tuningFog, valEl: tuningFogVal, digits: 2, apply: (v) => terrain.setFog(v) },
+  { input: tuningCurve, valEl: tuningCurveVal, digits: 1, apply: (v) => { terrain.setCurve(v); buildings.setCurve(v); } },
+  { input: tuningFog, valEl: tuningFogVal, digits: 2, apply: (v) => applyFog(v) },
   { input: tuningVibration, valEl: tuningVibrationVal, digits: 2, apply: (v) => terrain.setVibration(v) },
+  { input: tuningBuildingsThreshold, valEl: tuningBuildingsThresholdVal, digits: 2, apply: (v) => buildings.setProfileThreshold(v) },
 ];
 
 // Targets stay off the very ends of each slider: an amplitude of 0 flattens
@@ -759,6 +857,8 @@ function animate() {
   if (analyser.isPlaying) {
     const freq = analyser.getFrequencyData();
     terrain.update(freq);
+    trees.onSpectrum(freq, terrain);
+    buildings.update(freq);
     vibrationLevel += (currentLevelFrom(freq) - vibrationLevel) * Math.min(1, dt * 10);
     // Attack detector: track a slow-moving average of the bass band, then
     // take how far *above* that average the current instant is. A sustained
@@ -785,6 +885,7 @@ function animate() {
   // see uVibrationSpatial in the vertex shader.
   const vibrationSpatial = 0.4 + vibrationCentroid * 2.1;
   terrain.updateVibration(dt, vibrationLevel, vibrationBass, vibrationSpatial);
+  trees.update(terrain);
   game.update(dt);
 
   controls.update();

@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>test — immeubles (raymarch)</title>
+  <style>
+    html, body {
+      margin: 0; height: 100%; overflow: hidden;
+      background: radial-gradient(ellipse at center, #2a1a3a 0%, #0a0510 70%);
+    }
+    canvas { display: block; }
+    #note {
+      position: fixed; left: 12px; bottom: 12px; z-index: 10;
+      color: #cfe8ff; font: 12px system-ui, sans-serif;
+      background: rgba(5,7,13,0.6); padding: 6px 10px; border-radius: 6px;
+    }
+    #controls {
+      position: fixed; right: 12px; bottom: 12px; z-index: 10;
+      color: #cfe8ff; font: 12px system-ui, sans-serif;
+      background: rgba(5,7,13,0.6); padding: 8px 12px; border-radius: 6px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    #controls input[type="range"] { width: 140px; }
+  </style>
+</head>
+<body>
+  <div id="note">cliquez pour lancer le morceau — hauteur des immeubles pilotée par le spectre</div>
+  <div id="controls">
+    <span>seuil</span>
+    <input type="range" id="threshold" min="0" max="1" step="0.01" value="0.6" />
+    <span id="threshold-val">0.60</span>
+  </div>
+  <script type="module" src="/src/buildings-test.js"></script>
+</body>
+</html>

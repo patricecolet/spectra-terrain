@@ -100,11 +100,11 @@
     #now-playing.visible { opacity: 1; transform: translateY(0); }
     #now-playing .glyph-row { display: flex; align-items: flex-end; gap: 1px; }
     #now-playing .glyph-row img.glyph { width: auto; display: block; filter: brightness(0) invert(1); }
-    #view-toggle, #anim-toggle, #stop-btn {
+    #view-toggle, #mode-toggle, #anim-toggle, #stop-btn {
       background: #12203a; color: #cfe8ff; border: 1px solid #2a4166;
       border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer;
     }
-    #view-toggle:hover, #anim-toggle:hover, #stop-btn:hover { background: #1a2e52; }
+    #view-toggle:hover, #mode-toggle:hover, #anim-toggle:hover, #stop-btn:hover { background: #1a2e52; }
     #stop-btn { color: #ffb3b3; border-color: #4a2a2a; }
     #stop-btn:hover { background: #3a1a1a; }
 
@@ -237,6 +237,7 @@
   <div id="now-playing">
     <div class="glyph-row" id="now-playing-title"></div>
     <button id="view-toggle">vue : vallée au milieu</button>
+    <button id="mode-toggle">vue : terrain</button>
     <button id="anim-toggle">masquer l'animation</button>
     <button id="stop-btn">stop</button>
   </div>
@@ -334,12 +335,34 @@
     </details>
     <details>
       <summary>lecture</summary>
+      <label>
+        <span class="row"><span>volume</span><span id="tuning-volume-val"></span></span>
+        <input type="range" id="tuning-volume" min="0" max="1" step="0.01" autocomplete="off" />
+      </label>
       <label class="check">
         <input type="checkbox" id="tuning-autochain" autocomplete="off" />
         <span>enchaînement automatique</span>
       </label>
       <div class="row" style="margin-top: 2px;">morceaux affichés</div>
       <div id="tuning-tracks-group"></div>
+    </details>
+    <details>
+      <summary>arbres</summary>
+      <label>
+        <span class="row"><span>densité</span><span id="tuning-tree-density-val"></span></span>
+        <input type="range" id="tuning-tree-density" min="0.2" max="3" step="0.1" autocomplete="off" />
+      </label>
+    </details>
+    <details>
+      <summary>immeubles</summary>
+      <label>
+        <span class="row"><span>seuil (profil)</span><span id="tuning-buildings-threshold-val"></span></span>
+        <input type="range" id="tuning-buildings-threshold" min="0" max="1" step="0.01" autocomplete="off" />
+      </label>
+      <label>
+        <span class="row"><span>couleur selon amplitude</span><span id="tuning-buildings-color-val"></span></span>
+        <input type="range" id="tuning-buildings-color" min="0" max="1" step="0.01" autocomplete="off" />
+      </label>
     </details>
   </div>
 
