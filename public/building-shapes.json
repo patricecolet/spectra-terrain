@@ -471,17 +471,6 @@
       "type": "obj"
     },
     {
-      "name": "trees9",
-      "width": 2,
-      "depth": 4,
-      "folder": "/obj/trees9/",
-      "obj": "trees9.obj",
-      "mtl": "trees9.mtl",
-      "capacity": 10,
-      "chance": 0.15,
-      "type": "obj"
-    },
-    {
       "name": "mnogohome",
       "width": 6,
       "depth": 6,

@@ -118,8 +118,7 @@ export function loadObjShape(def) {
         objLoader.load(
           def.obj,
           (group) => {
-            const geometries = [];
-            const flatMaterials = [];
+            const pairs = [];
             const fallbackMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff });
             group.traverse((child) => {
               if (!child.isMesh || !child.geometry) return;
@@ -131,32 +130,40 @@ export function loadObjShape(def) {
               // has many usemtl switches inside one "g", which is common
               // for a model exported as one big object rather than one
               // part per material). splitByGroups below turns each of THAT
-              // mesh's own groups into its own single-material geometry, so
-              // every entry pushed to `geometries` is single-material by
-              // the time mergeGeometries(..., true) runs -- otherwise its
-              // one-materialIndex-per-INPUT-geometry addGroup call would
-              // collapse this mesh's own internal groups down to whichever
-              // single material got associated with it, silently discarding
-              // the other materials (found the hard way on mnogohome.obj,
-              // whose entire model is exactly this: one mesh, ~2700 groups).
+              // mesh's own groups into its own single-material geometry+
+              // material pair, so nothing about a child's own internal
+              // grouping gets lost before the material-bucketing step below.
               for (const { geometry: subGeometry, materialIndex } of splitByGroups(child.geometry)) {
-                geometries.push(subGeometry);
-                flatMaterials.push(childMaterials[materialIndex] || childMaterials[0] || fallbackMaterial);
+                pairs.push({ geometry: subGeometry, material: childMaterials[materialIndex] || childMaterials[0] || fallbackMaterial });
               }
             });
-            if (geometries.length === 0) { reject(new Error(`no meshes in ${def.obj}`)); return; }
-            // useGroups: true keeps each source mesh's own material on its
-            // own faces (one geometry group per input, materialIndex = its
-            // position in `geometries`/`flatMaterials`) instead of collapsing a
-            // multi-material model (most of these are -- a model exported
-            // per-part, one usemtl per part) down to whichever material
-            // happened to be traversed last. `flatMaterials` below is handed
-            // to InstancedMesh in that same order, exactly like the box
-            // tiers' own per-face material arrays (see buildings.js's
-            // sideMaterials).
-            const merged = geometries.length > 1 ? mergeGeometries(geometries, true) : geometries[0].clone();
+            if (pairs.length === 0) { reject(new Error(`no meshes in ${def.obj}`)); return; }
+            // Bucket every part by which material it actually uses, THEN
+            // merge each bucket into one contiguous geometry, THEN merge
+            // those (now one per distinct material, not one per original
+            // export segment) with useGroups so each gets its own group --
+            // a draw call is one per geometry group regardless of instance
+            // count, so a model whose source file switched materials
+            // hundreds of times over only a handful of actual colours
+            // (mnogohome.obj: ~2700 segments, 10 materials) would otherwise
+            // cost that many draw calls a frame for this one shape alone,
+            // every frame, whether or not it's currently spawned anywhere.
+            const byMaterial = new Map();
+            for (const { geometry: partGeometry, material: partMaterial } of pairs) {
+              if (!byMaterial.has(partMaterial)) byMaterial.set(partMaterial, []);
+              byMaterial.get(partMaterial).push(partGeometry);
+            }
+            const uniqueMaterials = [...byMaterial.keys()];
+            const perMaterialGeometries = uniqueMaterials.map((m) => {
+              const parts = byMaterial.get(m);
+              return parts.length > 1 ? mergeGeometries(parts, false) : parts[0];
+            });
+            if (perMaterialGeometries.some((g) => !g)) { reject(new Error(`mismatched geometry attributes in ${def.obj}`)); return; }
+            const merged = perMaterialGeometries.length > 1
+              ? mergeGeometries(perMaterialGeometries, true)
+              : perMaterialGeometries[0].clone();
             if (!merged) { reject(new Error(`mismatched geometry attributes in ${def.obj}`)); return; }
-            const material = flatMaterials.length > 1 ? flatMaterials : flatMaterials[0];
+            const material = uniqueMaterials.length > 1 ? uniqueMaterials : uniqueMaterials[0];
             // Optional [x, y, z] degrees, for a model authored with a
             // different up axis than this system's Y-up (a common mismatch
             // for 3ds Max exports, which default to Z-up) -- applied before
