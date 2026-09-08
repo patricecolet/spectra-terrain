@@ -1,0 +1,606 @@
+{
+  "shapes": [
+    {
+      "name": "spire",
+      "width": 1,
+      "depth": 1,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "silo",
+      "width": 2,
+      "depth": 2,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "skull",
+      "width": 4,
+      "depth": 4,
+      "chance": 1,
+      "type": "obj",
+      "folder": "/obj/skull/",
+      "obj": "skull.obj",
+      "mtl": "skull.mtl",
+      "capacity": 16,
+      "rotation": [
+        -90,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "block_1x3",
+      "width": 1,
+      "depth": 3,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_1x4",
+      "width": 1,
+      "depth": 4,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_1x5",
+      "width": 1,
+      "depth": 5,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_1x6",
+      "width": 1,
+      "depth": 6,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_1x7",
+      "width": 1,
+      "depth": 7,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_1x8",
+      "width": 1,
+      "depth": 8,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_2x5",
+      "width": 2,
+      "depth": 5,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_2x6",
+      "width": 2,
+      "depth": 6,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_2x7",
+      "width": 2,
+      "depth": 7,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_2x8",
+      "width": 2,
+      "depth": 8,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_3x5",
+      "width": 3,
+      "depth": 5,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_3x6",
+      "width": 3,
+      "depth": 6,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_3x7",
+      "width": 3,
+      "depth": 7,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_3x8",
+      "width": 3,
+      "depth": 8,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_4x1",
+      "width": 4,
+      "depth": 1,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_4x2",
+      "width": 4,
+      "depth": 2,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_4x5",
+      "width": 4,
+      "depth": 5,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_4x6",
+      "width": 4,
+      "depth": 6,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_4x7",
+      "width": 4,
+      "depth": 7,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_4x8",
+      "width": 4,
+      "depth": 8,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_5x1",
+      "width": 5,
+      "depth": 1,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_5x2",
+      "width": 5,
+      "depth": 2,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_5x3",
+      "width": 5,
+      "depth": 3,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_5x6",
+      "width": 5,
+      "depth": 6,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_5x7",
+      "width": 5,
+      "depth": 7,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_5x8",
+      "width": 5,
+      "depth": 8,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_6x1",
+      "width": 6,
+      "depth": 1,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_6x2",
+      "width": 6,
+      "depth": 2,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_6x3",
+      "width": 6,
+      "depth": 3,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_6x4",
+      "width": 6,
+      "depth": 4,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_6x7",
+      "width": 6,
+      "depth": 7,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_6x8",
+      "width": 6,
+      "depth": 8,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_7x1",
+      "width": 7,
+      "depth": 1,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_7x2",
+      "width": 7,
+      "depth": 2,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_7x3",
+      "width": 7,
+      "depth": 3,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_7x4",
+      "width": 7,
+      "depth": 4,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_7x5",
+      "width": 7,
+      "depth": 5,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_7x7",
+      "width": 7,
+      "depth": 7,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_7x8",
+      "width": 7,
+      "depth": 8,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_8x1",
+      "width": 8,
+      "depth": 1,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_8x2",
+      "width": 8,
+      "depth": 2,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_8x3",
+      "width": 8,
+      "depth": 3,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_8x4",
+      "width": 8,
+      "depth": 4,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_8x5",
+      "width": 8,
+      "depth": 5,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "block_8x6",
+      "width": 8,
+      "depth": 6,
+      "chance": 0.4,
+      "type": "cylinder",
+      "radius": 0.4,
+      "segments": 10
+    },
+    {
+      "name": "block_8x7",
+      "width": 8,
+      "depth": 7,
+      "chance": 0.4,
+      "type": "cone",
+      "radius": 0.32,
+      "segments": 4
+    },
+    {
+      "name": "alien-animal",
+      "width": 2,
+      "depth": 3,
+      "folder": "/obj/alien-animal/",
+      "obj": "alien-animal.obj",
+      "mtl": "alien-animal.mtl",
+      "capacity": 16,
+      "chance": 0.05,
+      "type": "obj"
+    },
+    {
+      "name": "watch-tower",
+      "width": 3,
+      "depth": 3,
+      "folder": "/obj/watch-tower/",
+      "obj": "watch-tower.obj",
+      "mtl": "watch-tower.mtl",
+      "capacity": 24,
+      "chance": 0.15,
+      "type": "obj"
+    },
+    {
+      "name": "trees9",
+      "width": 2,
+      "depth": 4,
+      "folder": "/obj/trees9/",
+      "obj": "trees9.obj",
+      "mtl": "trees9.mtl",
+      "capacity": 10,
+      "chance": 0.15,
+      "type": "obj"
+    },
+    {
+      "name": "mnogohome",
+      "width": 6,
+      "depth": 6,
+      "folder": "/obj/mnogohome/",
+      "obj": "mnogohome.obj",
+      "mtl": "mnogohome.mtl",
+      "capacity": 12,
+      "chance": 0.15,
+      "type": "obj"
+    },
+    {
+      "name": "medieval-house",
+      "width": 4,
+      "depth": 3,
+      "folder": "/obj/medieval-house/",
+      "obj": "medieval-house.obj",
+      "mtl": "medieval-house.mtl",
+      "capacity": 32,
+      "chance": 0.15,
+      "type": "obj"
+    },
+    {
+      "name": "eyeball",
+      "width": 1,
+      "depth": 2,
+      "folder": "/obj/eyeball/",
+      "obj": "eyeball.obj",
+      "mtl": "eyeball.mtl",
+      "capacity": 20,
+      "chance": 0.95,
+      "type": "obj"
+    },
+    {
+      "name": "brick-building",
+      "width": 5,
+      "depth": 5,
+      "folder": "/obj/brick-building/",
+      "obj": "brick-building.obj",
+      "mtl": "brick-building.mtl",
+      "capacity": 16,
+      "chance": 0.15,
+      "type": "obj"
+    },
+    {
+      "name": "chair",
+      "width": 2,
+      "depth": 1,
+      "folder": "/obj/chair/",
+      "obj": "chair.obj",
+      "mtl": "chair.mtl",
+      "capacity": 16,
+      "chance": 0.75,
+      "type": "obj"
+    },
+    {
+      "name": "khmer-monument",
+      "width": 5,
+      "depth": 4,
+      "folder": "/obj/khmer-monument/",
+      "obj": "khmer-monument.obj",
+      "mtl": "khmer-monument.mtl",
+      "capacity": 20,
+      "chance": 0.15,
+      "type": "obj"
+    },
+    {
+      "name": "container",
+      "width": 3,
+      "depth": 1,
+      "folder": "/obj/container/",
+      "obj": "Container.obj",
+      "mtl": "Container.mtl",
+      "capacity": 20,
+      "chance": 0.85,
+      "type": "obj"
+    },
+    {
+      "name": "building2",
+      "width": 6,
+      "depth": 5,
+      "folder": "/obj/building2/",
+      "obj": "building2.obj",
+      "mtl": "building2.mtl",
+      "capacity": 24,
+      "chance": 0.15,
+      "type": "obj"
+    },
+    {
+      "name": "bed",
+      "width": 3,
+      "depth": 4,
+      "folder": "/obj/bed/",
+      "obj": "bed.obj",
+      "mtl": "bed.mtl",
+      "capacity": 20,
+      "chance": 0.75,
+      "type": "obj"
+    },
+    {
+      "name": "statue",
+      "width": 3,
+      "depth": 2,
+      "folder": "/obj/statue/",
+      "obj": "statue.obj",
+      "mtl": "statue.mtl",
+      "capacity": 16,
+      "chance": 0.95,
+      "type": "obj"
+    },
+    {
+      "name": "cyprys-house",
+      "width": 7,
+      "depth": 6,
+      "folder": "/obj/cyprys-house/",
+      "obj": "Cyprys_House.obj",
+      "mtl": "Cyprys_House.mtl",
+      "capacity": 10,
+      "chance": 0.15,
+      "type": "obj"
+    }
+  ]
+}

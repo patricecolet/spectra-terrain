@@ -1,0 +1,56 @@
+# Hand-authored: the source archive's building.obj referenced a
+# building.mtl that wasn't actually included -- textures for each usemtl
+# name were still present separately (texteur/), matched here by name.
+newmtl AC
+	Kd 1.0000 1.0000 1.0000
+	map_Kd AC.jpg
+
+newmtl brack
+	Kd 1.0000 1.0000 1.0000
+	map_Kd brack.jpg
+
+newmtl brack_NONE
+	Kd 0.6000 0.6000 0.6000
+
+newmtl door
+	Kd 1.0000 1.0000 1.0000
+	map_Kd door.png
+
+newmtl door2
+	Kd 1.0000 1.0000 1.0000
+	map_Kd door2.png
+
+newmtl iron
+	Kd 1.0000 1.0000 1.0000
+	map_Kd iron.jpg
+
+newmtl Material
+	Kd 0.7000 0.7000 0.7000
+
+newmtl store
+	Kd 1.0000 1.0000 1.0000
+	map_Kd store.png
+
+newmtl top
+	Kd 1.0000 1.0000 1.0000
+	map_Kd top.jpg
+
+newmtl w2
+	Kd 1.0000 1.0000 1.0000
+	map_Kd w2.png
+
+newmtl wf
+	Kd 1.0000 1.0000 1.0000
+	map_Kd wf.jpg
+
+newmtl window1
+	Kd 1.0000 1.0000 1.0000
+	map_Kd window1.jpg
+
+newmtl window2
+	Kd 1.0000 1.0000 1.0000
+	map_Kd window2.png
+
+newmtl window3
+	Kd 1.0000 1.0000 1.0000
+	map_Kd window3.png

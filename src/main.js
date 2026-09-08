@@ -177,6 +177,8 @@ function resetToIdle({ clearHash = false } = {}) {
   centerStage.classList.remove('hidden');
   hasStartedPlayback = false;
   updateCanvasVisibility();
+  document.body.classList.remove('chrome-hidden');
+  clearTimeout(chromeHideTimer);
   if (clearHash) {
     history.replaceState(null, '', location.pathname + location.search);
   }
@@ -383,6 +385,7 @@ async function selectTrack(slug, { pushHash = false, chained = false } = {}) {
     await analyser.loadURL(track.file);
     hasStartedPlayback = true;
     updateCanvasVisibility();
+    scheduleChromeHide();
   } catch (err) {
     console.error('erreur de lecture', err);
     resetToIdle();
@@ -413,6 +416,25 @@ topLogo.addEventListener('click', goToCover);
 viewToggle.addEventListener('click', () => {
   const bassCenter = terrain.toggleBassCenter();
   viewToggle.textContent = bassCenter ? 'vue : basses au milieu' : 'vue : vallée au milieu';
+});
+
+// OrbitControls' own autoRotate: spins the camera a full 360 around its
+// target (the centre of the scrolling terrain/buildings) at whatever
+// elevation it's currently at, never dipping below -- exactly the
+// "stays above, but free to turn all the way around" behaviour asked for,
+// with none of the polar-angle math to get wrong by hand. A user drag still
+// works normally alongside it (OrbitControls pauses auto-rotation for the
+// duration of a drag, then resumes).
+// Speed comes from the "réglages automatiques" vitesse slider (see the
+// animate() loop), so the rotation is really part of that same automatic
+// system -- turning "réglages automatiques" off must stop it too, not just
+// freeze it at whatever speed it last had.
+const cameraRotateToggle = document.getElementById('camera-rotate-toggle');
+let cameraRotateWanted = true;
+cameraRotateToggle.classList.add('active');
+cameraRotateToggle.addEventListener('click', () => {
+  cameraRotateWanted = !cameraRotateWanted;
+  cameraRotateToggle.classList.toggle('active', cameraRotateWanted);
 });
 
 stopBtn.addEventListener('click', stopPlayback);
@@ -692,6 +714,7 @@ function showPasswordPrompt() {
 
 function hidePasswordPrompt() {
   passwordOverlay.classList.add('hidden');
+  scheduleChromeHide();
 }
 
 function submitPassword() {
@@ -714,10 +737,45 @@ passwordInput.addEventListener('keydown', (e) => {
 tuningToggle.addEventListener('click', (e) => {
   if (isSettingsUnlocked()) {
     tuningPanel.classList.toggle('hidden');
+    scheduleChromeHide();
   } else if (e.shiftKey) {
     showPasswordPrompt();
   }
 });
+
+// Immersive auto-hide: once a track is actually playing, the overlay chrome
+// (top bar, now-playing bar, gear/game buttons) fades out after a few
+// seconds of no interaction and comes back on the next touch/click/keypress
+// -- the video-player-controls pattern. See the matching "body.chrome-hidden"
+// rules in index.html. Never hides before playback starts (the track list
+// needs to stay reachable), and stays suspended while the tuning panel or
+// the password prompt is open so a slider drag or a read of the settings
+// doesn't get swept away mid-interaction.
+const CHROME_HIDE_DELAY = 3000;
+let chromeHideTimer = null;
+
+function chromeMayHide() {
+  return hasStartedPlayback
+    && tuningPanel.classList.contains('hidden')
+    && passwordOverlay.classList.contains('hidden');
+}
+
+function scheduleChromeHide() {
+  clearTimeout(chromeHideTimer);
+  if (!chromeMayHide()) return;
+  chromeHideTimer = setTimeout(() => {
+    if (chromeMayHide()) document.body.classList.add('chrome-hidden');
+  }, CHROME_HIDE_DELAY);
+}
+
+function showChrome() {
+  document.body.classList.remove('chrome-hidden');
+  scheduleChromeHide();
+}
+
+window.addEventListener('pointerdown', showChrome);
+window.addEventListener('pointermove', showChrome);
+window.addEventListener('keydown', showChrome);
 
 const styleButtons = document.querySelectorAll('.style-btn');
 styleButtons.forEach((btn) => {
@@ -883,6 +941,16 @@ function animate() {
   applyLinkedLooks();
   updateBackdropFilter();
   applyZenithLift();
+  // Shares the "réglages automatiques" vitesse slider rather than its own
+  // fixed speed -- one knob for "how fast is everything drifting/turning".
+  // That slider's own 0.1..3 range was tuned for parameter drift, not
+  // camera rotation -- read straight through, its 0.1 default felt far too
+  // slow for a full 360 (a fixed 1.2 felt too fast the other way), so this
+  // scales it into a range that actually suits an orbit. Tied to the same
+  // checkbox too: it's the same "automatic" system, so switching it off
+  // must stop the rotation, not just leave it spinning at its last speed.
+  controls.autoRotate = cameraRotateWanted && autoToggle.checked;
+  controls.autoRotateSpeed = Number(autoSpeed.value) * 5;
 
   if (analyser.isPlaying) {
     const freq = analyser.getFrequencyData();

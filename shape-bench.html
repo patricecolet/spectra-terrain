@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>banc de test — bibliothèque de formes</title>
+  <style>
+    html, body {
+      margin: 0; height: 100%; overflow: hidden;
+      background: #101018;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    canvas { display: block; }
+    #panel {
+      position: fixed; top: 0; left: 0; bottom: 0; width: 220px;
+      overflow-y: auto; box-sizing: border-box;
+      background: rgba(5, 7, 13, 0.85);
+      color: #cfe8ff;
+      padding: 10px;
+      display: flex; flex-direction: column; gap: 4px;
+      font-size: 12px;
+    }
+    #panel h1 {
+      font-size: 13px; margin: 2px 0 8px; opacity: 0.8; font-weight: 600;
+    }
+    #panel button {
+      background: #12203a; color: #cfe8ff; border: 1px solid #2a4166;
+      border-radius: 5px; padding: 6px 8px; text-align: left; cursor: pointer;
+      font-size: 12px;
+    }
+    #panel button:hover { background: #1a2e52; }
+    #panel button.active { background: rgba(60, 130, 200, 0.45); border-color: #7fc4ff; }
+
+    #editor {
+      position: fixed; top: 0; right: 0; bottom: 0; width: 240px;
+      overflow-y: auto; box-sizing: border-box;
+      background: rgba(5, 7, 13, 0.85);
+      color: #cfe8ff;
+      padding: 12px;
+      display: flex; flex-direction: column; gap: 10px;
+      font-size: 12px;
+    }
+    #editor h1 {
+      font-size: 13px; margin: 2px 0 4px; opacity: 0.8; font-weight: 600;
+    }
+    #editor label {
+      display: flex; flex-direction: column; gap: 3px;
+    }
+    #editor .row { display: flex; gap: 8px; }
+    #editor .row label { flex: 1; }
+    #editor input {
+      background: #0c1220; color: #cfe8ff;
+      border: 1px solid #2a4166; border-radius: 5px;
+      padding: 5px 7px; font-size: 12px; width: 100%; box-sizing: border-box;
+    }
+    #editor-name { font-weight: 600; font-size: 13px; word-break: break-all; }
+    #editor-vertexinfo { opacity: 0.7; font-size: 11px; }
+    #editor-dims {
+      opacity: 0.8; font-size: 11px; white-space: pre-line; line-height: 1.5;
+      background: rgba(255, 255, 255, 0.04); border-radius: 5px; padding: 8px;
+    }
+    #save-btn {
+      background: rgba(60, 130, 200, 0.45); color: #cfe8ff; border: 1px solid #7fc4ff;
+      border-radius: 6px; padding: 8px 10px; cursor: pointer; font-size: 12px; font-weight: 600;
+    }
+    #save-btn:hover { background: rgba(60, 130, 200, 0.65); }
+    #save-note {
+      font-size: 11px; opacity: 0.65; line-height: 1.4;
+    }
+    #shape-info {
+      position: fixed; left: 232px; bottom: 12px; z-index: 10;
+      color: #cfe8ff; font-size: 12px;
+      background: rgba(5, 7, 13, 0.75);
+      padding: 7px 11px; border-radius: 6px;
+      max-width: calc(100vw - 232px - 252px);
+    }
+  </style>
+</head>
+<body>
+  <div id="panel">
+    <h1>building-shapes.json</h1>
+    <div id="shape-list"></div>
+  </div>
+  <div id="editor" hidden>
+    <h1>éditer</h1>
+    <div id="editor-name"></div>
+    <div id="editor-vertexinfo"></div>
+    <div id="editor-dims"></div>
+    <div class="row">
+      <label>largeur (blocs)<input type="number" id="f-width" min="1" step="1" /></label>
+      <label>profondeur (blocs)<input type="number" id="f-depth" min="1" step="1" /></label>
+    </div>
+    <label>chance (0-1)<input type="number" id="f-chance" min="0" max="1" step="0.01" /></label>
+    <div id="editor-procedural">
+      <div class="row">
+        <label>rayon (fraction de case)<input type="number" id="f-radius" min="0" step="0.01" /></label>
+        <label>segments<input type="number" id="f-segments" min="3" step="1" /></label>
+      </div>
+    </div>
+    <div id="editor-obj">
+      <label>rotation X/Y/Z (degrés)</label>
+      <div class="row">
+        <input type="number" id="f-rot-x" step="1" />
+        <input type="number" id="f-rot-y" step="1" />
+        <input type="number" id="f-rot-z" step="1" />
+      </div>
+      <label>capacité (instances max)<input type="number" id="f-capacity" min="1" step="1" /></label>
+    </div>
+    <button id="save-btn">télécharger building-shapes.json</button>
+    <div id="save-note">
+      Le navigateur ne peut pas écrire directement dans public/ — ça télécharge
+      le fichier mis à jour, à glisser ensuite dans public/building-shapes.json
+      pour que les changements prennent effet.
+    </div>
+  </div>
+  <div id="shape-info">chargement de la bibliothèque…</div>
+  <script type="module" src="/src/shape-bench.js"></script>
+</body>
+</html>

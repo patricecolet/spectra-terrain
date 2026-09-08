@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SHAPE_LIBRARY_URL, fetchShapeLibrary, buildProceduralGeometry, loadObjShape, computeCellSize } from './shapeLibrary.js';
 
 // A "buildings" alternative to the rock terrain: real instanced boxes that
 // spawn at the far edge with a height fixed once and for all at birth, then
@@ -99,7 +100,25 @@ const CHIMNEY_LAYOUTS = [
 const CHIMNEY_SIZE = 0.18;
 const CHIMNEY_HEIGHT = 0.5;
 
-function chimneyCountFor(widthSpan, depthSpan) {
+// Matches the ember ramp's own "orange" stop (see EMBER_STOPS' c5) -- a
+// building only earns chimneys once it's tall/loud enough to actually read
+// as orange on the roof, not just because its ilot happens to be wide.
+const CHIMNEY_COLOR_THRESHOLD = 0.52;
+
+// The alternative-shape library itself lives in public/building-shapes.json,
+// not here -- each entry is { name, width, depth, chance, type, radius,
+// segments }, associating a shape with the one exact ilot footprint (width x
+// depth, in blocks) it can replace a plain box on. Data, not code, so new
+// shapes (or a retuned chance/radius) don't need a JS change -- see
+// _loadShapeLibrary. Picked purely at random per matching ilot -- unlike
+// chimneys, this isn't a reward for a loud/orange moment, just background
+// variety in an otherwise all-box skyline. A footprint that doesn't match
+// any entry (including every size in between two defined ones, like 1x2 or
+// 3x3) always stays a plain box. The URL itself (SHAPE_LIBRARY_URL) is
+// exported from shapeLibrary.js, not redeclared here.
+
+function chimneyCountFor(widthSpan, depthSpan, colorCurved) {
+  if (colorCurved < CHIMNEY_COLOR_THRESHOLD) return 0;
   const size = Math.max(widthSpan, depthSpan);
   if (size >= 4) return MAX_CHIMNEYS_PER_SLOT;
   if (size > 1) return 1;
@@ -184,13 +203,23 @@ export class Buildings {
     // _updateInstances. Mirrors how Terrain itself handles width changes
     // (mesh.scale.x = width / baseWidth) rather than rebuilding geometry.
     this._baseWidth = terrain.width;
-    // Kept around (not just a local) so chimneys can be spread across a
-    // building's actual footprint in world units -- see _updateInstances.
-    this.cellWidth = (terrain.width / 2 / LANES_PER_CHANNEL) * 0.85;
-    // Kept around (not just a local) so depth-clustering can offset/scale a
-    // merged block's position and Z-extent in the same world units -- see
-    // _spawnGeneration/_updateInstances.
-    this.cellDepth = (this.depth / this.generationsPerLane) * 0.85;
+    // Kept around (not just a local): cellWidth so chimneys can be spread
+    // across a building's actual footprint in world units (see
+    // _updateInstances), cellDepth so depth-clustering can offset/scale a
+    // merged block's position and Z-extent the same way (see
+    // _spawnGeneration/_updateInstances). Computed by shapeLibrary.js's
+    // computeCellSize, shared with shape-bench.js's own display, so the two
+    // never drift out of sync on this formula.
+    const { cellWidth, cellDepth } = computeCellSize({
+      terrainWidth: terrain.width,
+      terrainDepth: terrain.depth,
+      terrainHistoryLength: terrain.historyLength,
+      lanesPerChannel: LANES_PER_CHANNEL,
+      spawnInterval: SPAWN_INTERVAL,
+      depthMultiplier: DEPTH_MULTIPLIER,
+    });
+    this.cellWidth = cellWidth;
+    this.cellDepth = cellDepth;
     const boxGeometry = new THREE.BoxGeometry(this.cellWidth, 1, this.cellDepth);
     boxGeometry.translate(0, 0.5, 0); // pivot at the base, like trees' trunk geometry
     // Transparent + partial opacity, so this integrates with the backdrop
@@ -230,6 +259,7 @@ export class Buildings {
     const chimneyGeometry = new THREE.BoxGeometry(CHIMNEY_SIZE, CHIMNEY_HEIGHT, CHIMNEY_SIZE);
     chimneyGeometry.translate(0, CHIMNEY_HEIGHT / 2, 0);
     this.chimneyMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff, ...materialOpts });
+
     this.hue = 0;
     this.saturation = 0;
     this.brilliance = 0;
@@ -251,7 +281,27 @@ export class Buildings {
     this.meshPlain = new THREE.InstancedMesh(boxGeometry, this.materialPlain, this.maxInstances);
     this.meshWindows = new THREE.InstancedMesh(boxGeometry, sideMaterials(this.materialWindows), this.maxInstances);
     this.meshBricked = new THREE.InstancedMesh(boxGeometry, sideMaterials(this.materialBricked), this.maxInstances);
+    // Box tiers only -- what _tierFor picks between. Kept separate from
+    // allMeshes below since the special shapes never go through a tier.
     this.meshes = [this.meshPlain, this.meshWindows, this.meshBricked];
+    // Special-shape meshes are added later, once building-shapes.json has
+    // loaded (see _loadShapeLibrary/_registerShapeMesh) -- all three arrays
+    // start as just the box tiers and grow from there.
+    this.shapeMeshes = [];
+    // Every mesh any slot could ever end up on, box tier or special shape --
+    // used only where that's safe regardless of a mesh's own instance count
+    // (flushing needsUpdate flags after a batch of setMatrixAt/setColorAt
+    // calls, which just sets a bool). A pooled shape (see _loadObjShape) is
+    // sized far below maxInstances, so it belongs here but NOT in
+    // fullMeshes below.
+    this.allMeshes = [...this.meshes];
+    // Meshes actually sized to maxInstances, addressable by a slot's own
+    // general index i -- what _hideInstance and the per-slot init loop below
+    // use. A pooled shape mesh is addressed by its own pool index instead
+    // (see _spawnGeneration/_updateInstances's own meshIndex), never by i,
+    // so calling setMatrixAt(i, ...) on it with i possibly far past its
+    // small capacity would throw.
+    this.fullMeshes = [...this.meshes];
     for (const mesh of this.meshes) {
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.frustumCulled = false; // see trees.js's own note on spread-out instances
@@ -264,21 +314,28 @@ export class Buildings {
     scene.add(this.group);
     this.group.visible = false; // see setEnabled() -- the mode toggle owns this
 
+    // name -> { name, width, depth, chance, type, radius, segments, mesh },
+    // populated once building-shapes.json resolves -- see _loadShapeLibrary.
+    // Empty (every ilot stays a plain box) until then, and forever if the
+    // file is missing or malformed.
+    this._shapeByName = new Map();
+    this._loadShapeLibrary();
+
     this._dummy = new THREE.Object3D();
-    this.slots = Array.from({ length: this.maxInstances }, () => ({ active: false, curved: 0, spawnFrame: 0, laneStart: 0, channel: 0, widthSpan: 1, depthSpan: 1, chimneyCount: 0 }));
+    this.slots = Array.from({ length: this.maxInstances }, () => ({ active: false, curved: 0, spawnFrame: 0, laneStart: 0, channel: 0, widthSpan: 1, depthSpan: 1, chimneyCount: 0, shape: 'box', poolIndex: -1 }));
     // Per-lane countdown of upcoming spawn ticks to skip because a
     // depth-ilot spawned earlier in that lane is still extending forward
     // through them -- see _spawnGeneration.
     this._laneDepthRemaining = new Int32Array(this.totalLanes);
     for (let i = 0; i < this.maxInstances; i++) {
       this._hideInstance(i);
-      for (const mesh of this.meshes) mesh.setColorAt(i, this._baseColor);
+      for (const mesh of this.fullMeshes) mesh.setColorAt(i, this._baseColor);
     }
     for (let i = 0; i < this.maxInstances * MAX_CHIMNEYS_PER_SLOT; i++) {
       this._hideChimney(i);
       this.chimneyMesh.setColorAt(i, this._baseColor);
     }
-    for (const mesh of this.meshes) {
+    for (const mesh of this.allMeshes) {
       mesh.instanceMatrix.needsUpdate = true;
       mesh.instanceColor.needsUpdate = true;
     }
@@ -433,21 +490,33 @@ export class Buildings {
   }
 
   // Mirrors terrain.reset(): a deliberately restarted track shouldn't leave
-  // the previous track's skyline standing.
+  // the previous track's skyline standing. Also returns every pooled shape's
+  // instances to its free list -- _hideInstance alone only clears fullMeshes
+  // (see its own note), never a pooled mesh's own instance indices.
   reset() {
     this.frame = 0;
     this._profileSum.fill(0);
     this._profileCount = 0;
-    this.slots.forEach((s) => { s.active = false; });
+    this.slots.forEach((s) => { s.active = false; s.poolIndex = -1; });
     this._laneDepthRemaining.fill(0);
     for (let i = 0; i < this.maxInstances; i++) this._hideInstance(i);
     for (let i = 0; i < this.maxInstances * MAX_CHIMNEYS_PER_SLOT; i++) this._hideChimney(i);
-    for (const mesh of this.meshes) mesh.instanceMatrix.needsUpdate = true;
+    this._dummy.position.set(0, -1000, 0);
+    this._dummy.scale.set(1, 0.0001, 1);
+    this._dummy.updateMatrix();
+    for (const def of this._shapeByName.values()) {
+      if (!def.pool) continue;
+      def.pool.free = Array.from({ length: def.capacity }, (_, k) => k);
+      for (let i = 0; i < def.capacity; i++) def.mesh.setMatrixAt(i, this._dummy.matrix);
+      def.mesh.instanceMatrix.needsUpdate = true;
+    }
+    for (const mesh of this.allMeshes) mesh.instanceMatrix.needsUpdate = true;
     this.chimneyMesh.instanceMatrix.needsUpdate = true;
   }
 
   // Which facade tier a building this many blocks wide/deep gets -- see the
-  // constructor's own note on the three materials/meshes.
+  // constructor's own note on the three materials/meshes. Only meaningful
+  // for shape 'box' -- see _meshForSlot for the special shapes.
   _tierFor(widthSpan, depthSpan) {
     const size = Math.max(widthSpan, depthSpan);
     if (size >= 4) return this.meshBricked;
@@ -455,15 +524,137 @@ export class Buildings {
     return this.meshPlain;
   }
 
-  // Hides index i on every tier's mesh, not just whichever one last used
-  // it: a given physical slot can be a different tier from one generation
-  // to the next, so the mesh that doesn't get a fresh transform this time
-  // must not be left showing its previous one.
+  // The mesh a given slot actually renders on: one of the three box tiers,
+  // or a shape from building-shapes.json decided once at spawn (see
+  // _spawnGeneration/_loadShapeLibrary).
+  _meshForSlot(slot) {
+    const def = this._shapeByName.get(slot.shape);
+    return def ? def.mesh : this._tierFor(slot.widthSpan, slot.depthSpan);
+  }
+
+  // Wires a newly-built shape mesh into the same bookkeeping the box tiers
+  // got in the constructor (usage hint, frustum culling, added to the
+  // group) and, since it's arriving after every existing slot has already
+  // been initialized/hidden on the *other* meshes, brings it up to the same
+  // "every instance hidden, tinted to the current base colour" state those
+  // started in -- otherwise its very first frame would show instance 0..N
+  // at the origin with default black material colour before anything ever
+  // calls _hideInstance/setColorAt on it again. `capacity` is the mesh's
+  // own instance count -- maxInstances for a cheap procedural shape (see
+  // _loadShapeLibrary), a small pooled number for a heavy custom model (see
+  // _loadObjShape) -- only the former also joins fullMeshes, since only
+  // meshes actually sized to maxInstances can be safely addressed by a
+  // slot's general index (see fullMeshes' own note in the constructor).
+  _registerShapeMesh(mesh, capacity) {
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.frustumCulled = false;
+    this._dummy.position.set(0, -1000, 0);
+    this._dummy.scale.set(1, 0.0001, 1);
+    this._dummy.updateMatrix();
+    for (let i = 0; i < capacity; i++) {
+      mesh.setMatrixAt(i, this._dummy.matrix);
+      mesh.setColorAt(i, this._baseColor);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.instanceColor.needsUpdate = true;
+    this.group.add(mesh);
+    this.shapeMeshes.push(mesh);
+    this.allMeshes.push(mesh);
+    if (capacity === this.maxInstances) this.fullMeshes.push(mesh);
+  }
+
+  // Fetches the data-driven shape library (see SHAPE_LIBRARY_URL's own
+  // note), builds one InstancedMesh per entry, and indexes them by name for
+  // _spawnGeneration/_meshForSlot. Best-effort like loadProfile: a missing
+  // or malformed file just leaves _shapeByName empty, so every ilot stays a
+  // plain box rather than the app failing to start. Geometry-building itself
+  // lives in shapeLibrary.js, shared with shape-bench.js's standalone
+  // preview, so the two never drift apart.
+  _loadShapeLibrary() {
+    fetchShapeLibrary(SHAPE_LIBRARY_URL).then((shapes) => {
+      // Radius is expressed in the JSON as a fraction of one lane cell
+      // (averaging cellWidth/cellDepth, since a round shape can't match
+      // both independently), not a world-unit constant, so it keeps
+      // reading the same regardless of terrain width/lane density.
+      const cellUnit = (this.cellWidth + this.cellDepth) / 2;
+      for (const def of shapes) {
+        if (!def || !def.name || !def.width || !def.depth) continue;
+        if (this._shapeByName.has(def.name)) continue; // first entry with a given name wins
+        if (def.type === 'obj') {
+          this._loadObjShape(def);
+          continue;
+        }
+        const geometry = buildProceduralGeometry(def, cellUnit);
+        const mesh = new THREE.InstancedMesh(geometry, this.materialPlain, this.maxInstances);
+        this._registerShapeMesh(mesh, this.maxInstances);
+        // pool: null -- a procedural shape's mesh is sized to
+        // maxInstances, so it's addressed by a slot's own general index
+        // like a box tier, never through the pool/free-list machinery
+        // _loadObjShape's shapes use.
+        this._shapeByName.set(def.name, { ...def, mesh, capacity: this.maxInstances, pool: null });
+      }
+    });
+  }
+
+  // A custom .obj (+ its own .mtl) rather than a procedural primitive --
+  // see building-shapes.json's "skull" entry, and loadObjShape's own note in
+  // shapeLibrary.js for how it's loaded/normalized.
+  //
+  // A model like this can easily be tens of thousands of triangles --
+  // nothing like the ~10-vertex box/cone/cylinder this system was built
+  // around, where drawing the full maxInstances count every frame (even the
+  // mostly-hidden ones, see _hideInstance) is free. Capped at its own small
+  // `capacity` instead, with a simple free-list pool (see
+  // _spawnGeneration/_updateInstances's own poolIndex handling): a spawn
+  // that can't get a pool slot just falls back to a plain box rather than
+  // growing the pool or skipping the building outright.
+  _loadObjShape(def) {
+    const capacity = Math.max(1, Math.round(def.capacity || 16));
+    loadObjShape(def)
+      .then(({ geometry, material }) => {
+        const mesh = new THREE.InstancedMesh(geometry, material, capacity);
+        this._registerShapeMesh(mesh, capacity);
+        this._shapeByName.set(def.name, {
+          ...def,
+          mesh,
+          capacity,
+          pool: { free: Array.from({ length: capacity }, (_, k) => k) },
+        });
+      })
+      .catch(() => {}); // missing/malformed model -- this entry just never appears
+  }
+
+  // Returns a slot's pooled shape instance (if it has one) to that shape's
+  // free list and hides it -- the counterpart to the free-list pop in
+  // _spawnGeneration. Needed because _hideInstance only ever clears
+  // fullMeshes by the slot's general index (see its own note), which never
+  // touches a pooled mesh at all.
+  _releasePoolIndex(slot) {
+    if (slot.poolIndex < 0) return;
+    const def = this._shapeByName.get(slot.shape);
+    if (def && def.pool) {
+      this._dummy.position.set(0, -1000, 0);
+      this._dummy.scale.set(1, 0.0001, 1);
+      this._dummy.updateMatrix();
+      def.mesh.setMatrixAt(slot.poolIndex, this._dummy.matrix);
+      def.mesh.instanceMatrix.needsUpdate = true;
+      def.pool.free.push(slot.poolIndex);
+    }
+    slot.poolIndex = -1;
+  }
+
+  // Hides index i on every full-capacity mesh it could possibly be on, not
+  // just whichever one last used it: a given physical slot can be a
+  // different tier, or a different shape entirely, from one generation to
+  // the next, so whichever mesh doesn't get a fresh transform this time must
+  // not be left showing its previous one. A pooled shape's own instance is
+  // handled separately, by pool index rather than i -- see
+  // _releasePoolIndex.
   _hideInstance(i) {
     this._dummy.position.set(0, -1000, 0);
     this._dummy.scale.set(1, 0.0001, 1);
     this._dummy.updateMatrix();
-    for (const mesh of this.meshes) mesh.setMatrixAt(i, this._dummy.matrix);
+    for (const mesh of this.fullMeshes) mesh.setMatrixAt(i, this._dummy.matrix);
   }
 
   _hideChimney(i) {
@@ -607,31 +798,64 @@ export class Buildings {
           this._laneDepthRemaining[lane] = depthSpan - 1;
         }
         slot.depthSpan = depthSpan;
-        // Chimneys: none on a lone 1x1 block, one once an ilot spans more
-        // than a single block on either axis, the full set from 4 blocks --
-        // see chimneyCountFor/CHIMNEY_LAYOUTS. Decided once here, like
-        // everything else about this generation.
-        slot.chimneyCount = chimneyCountFor(span, depthSpan);
+
+        // A shape from the library (see SHAPE_LIBRARY_URL/_loadShapeLibrary)
+        // only ever tries for the exact footprint it's associated with;
+        // anything else, including sizes in between two defined entries,
+        // stays a plain box. Pure random pick per matching entry -- not
+        // gated on colour/amplitude like chimneys, since this is meant to
+        // read as incidental variety in the skyline, not a music cue. A
+        // pooled shape (see _loadObjShape) whose pool is currently empty is
+        // treated as a non-match and falls through to the next candidate,
+        // same as a size mismatch -- there's no queue, it just becomes a
+        // plain box this time.
+        let shape = 'box';
+        let poolIndex = -1;
+        for (const def of this._shapeByName.values()) {
+          if (def.width !== span || def.depth !== depthSpan || Math.random() >= def.chance) continue;
+          if (def.pool) {
+            if (def.pool.free.length === 0) continue;
+            poolIndex = def.pool.free.pop();
+          }
+          shape = def.name;
+          break;
+        }
+        slot.shape = shape;
+        slot.poolIndex = poolIndex;
+
+        // Uses its own fixed curve (COLOR_GAMMA), not the height slider's --
+        // see the note above heightCurved. Computed before chimneyCountFor
+        // since chimneys gate on this same value (see its own note).
+        const colorCurved = Math.pow(rawNorm, COLOR_GAMMA);
+
+        // Chimneys: only on plain boxes -- a spire or silo is already its
+        // own distinct roofline and doesn't want a box's smokestacks stuck
+        // on top. Otherwise: none on a lone 1x1 block or a building that
+        // isn't at least glowing orange on the ember ramp yet (see
+        // CHIMNEY_COLOR_THRESHOLD) -- one once an ilot spans more than a
+        // single block on either axis and clears that colour, the full set
+        // from 4 blocks. Decided once here, like everything else about this
+        // generation.
+        slot.chimneyCount = shape === 'box' ? chimneyCountFor(span, depthSpan, colorCurved) : 0;
 
         // Decided once at spawn, like height and gate state: blends from the
         // flat base colour toward the ember ramp by this building's own
         // amplitude, by however much setAmplitudeColorAmount currently
-        // allows. Uses its own fixed curve (COLOR_GAMMA), not the height
-        // slider's -- see the note above heightCurved. The ramp goes through
-        // the same hue/saturation/brilliance transform as the flat colour
-        // (see _transformColor) so the terrain's colour sliders stay linked
-        // even at amplitude-colour = 1, where the ramp is the only thing
-        // actually shown.
-        const colorCurved = Math.pow(rawNorm, COLOR_GAMMA);
+        // allows. The ramp goes through the same hue/saturation/brilliance
+        // transform as the flat colour (see _transformColor) so the
+        // terrain's colour sliders stay linked even at amplitude-colour = 1,
+        // where the ramp is the only thing actually shown.
         const ember = this._transformColor(emberColor(colorCurved));
         const color = this._baseColor.clone().lerp(ember, this.amplitudeColorAmount);
-        this._tierFor(span, depthSpan).setColorAt(slotIndex, color);
+        // A pooled shape (poolIndex >= 0) is addressed by its own pool index
+        // on its small mesh, never by slotIndex -- see fullMeshes' own note.
+        this._meshForSlot(slot).setColorAt(slot.poolIndex >= 0 ? slot.poolIndex : slotIndex, color);
         for (let k = 0; k < slot.chimneyCount; k++) {
           this.chimneyMesh.setColorAt(slotIndex * MAX_CHIMNEYS_PER_SLOT + k, color);
         }
       }
     }
-    for (const mesh of this.meshes) mesh.instanceColor.needsUpdate = true;
+    for (const mesh of this.allMeshes) mesh.instanceColor.needsUpdate = true;
     this.chimneyMesh.instanceColor.needsUpdate = true;
   }
 
@@ -644,6 +868,7 @@ export class Buildings {
       if (!slot.active || age < 0 || age >= this.crossingFrames) {
         this._hideInstance(i);
         for (let k = 0; k < MAX_CHIMNEYS_PER_SLOT; k++) this._hideChimney(i * MAX_CHIMNEYS_PER_SLOT + k);
+        this._releasePoolIndex(slot); // no-op once already released -- see its own note
         continue;
       }
       // A depth ilot's lead generation marks its far (oldest) edge, not its
@@ -692,9 +917,30 @@ export class Buildings {
       // looks otherwise.
       const lifeFrac = age / this.crossingFrames;
       const endShrink = lifeFrac > 0.85 ? 1 - smoothstep(0.85, 1, lifeFrac) : 1;
-      this._dummy.scale.set(slot.widthSpan * widthScale * endShrink, height * endShrink, slot.depthSpan * endShrink);
+      // A box (or a rotationally-symmetric cone/cylinder placeholder) reads
+      // fine stretched independently per axis -- a short, wide one just
+      // looks like a squat building. A rigid, recognisable .obj model does
+      // not: since widthSpan/depthSpan (its footprint, fixed by whichever
+      // exact ilot size it's tied to) and height (amplitude-driven, totally
+      // unrelated) can differ wildly, that same per-axis scale visibly
+      // squashes or stretches it out of proportion. Those get one uniform
+      // factor on all three axes instead, sized off the footprint rather
+      // than `height` -- height is calibrated for a thin, tall tower (up to
+      // this.amplitude world units) against a much narrower cellWidth-based
+      // footprint, so reusing it here let a loud moment balloon the model
+      // many times wider than its own ilot, clipping through neighbours.
+      const objShape = this._shapeByName.get(slot.shape);
+      if (objShape && objShape.type === 'obj') {
+        const footprint = ((slot.widthSpan * this.cellWidth + slot.depthSpan * this.cellDepth) / 2) * widthScale;
+        const uniform = footprint * endShrink;
+        this._dummy.scale.set(uniform, uniform, uniform);
+      } else {
+        this._dummy.scale.set(slot.widthSpan * widthScale * endShrink, height * endShrink, slot.depthSpan * endShrink);
+      }
       this._dummy.updateMatrix();
-      this._tierFor(slot.widthSpan, slot.depthSpan).setMatrixAt(i, this._dummy.matrix);
+      // A pooled shape (poolIndex >= 0) is addressed by its own pool index
+      // on its small mesh, never by i -- see fullMeshes' own note.
+      this._meshForSlot(slot).setMatrixAt(slot.poolIndex >= 0 ? slot.poolIndex : i, this._dummy.matrix);
 
       // Chimneys ride the roof: same worldX/worldZ as the building itself,
       // spread out over its actual (live-scaled) footprint by each layout
@@ -717,7 +963,7 @@ export class Buildings {
         this.chimneyMesh.setMatrixAt(chimneyIndex, this._dummy.matrix);
       }
     }
-    for (const mesh of this.meshes) mesh.instanceMatrix.needsUpdate = true;
+    for (const mesh of this.allMeshes) mesh.instanceMatrix.needsUpdate = true;
     this.chimneyMesh.instanceMatrix.needsUpdate = true;
   }
 
